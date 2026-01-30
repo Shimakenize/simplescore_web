@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
 
 void main() {
@@ -121,6 +122,11 @@ class _HomeScreenState extends State<HomeScreen> {
               label: const Text('試合開始'),
             ),
           ),
+          const SizedBox(height: 12),
+          const Text(
+            '※ Web版は画面を閉じる/バックグラウンドにするとタイマーが止まりやすいです',
+            style: TextStyle(color: Colors.black54),
+          ),
         ],
       ),
     );
@@ -154,31 +160,45 @@ class _MatchScreenState extends State<MatchScreen> {
   bool _running = false;
 
   MatchPhase _phase = MatchPhase.firstHalf;
+
+  // 現在フェーズの経過秒
   int _elapsedInPhaseSec = 0;
+
+  // フェーズ終了時に確定させる（手動遷移のため）
+  int? _firstHalfElapsedSec;
+  int? _halftimeElapsedSec;
+  int? _secondHalfElapsedSec;
 
   int _scoreA = 0;
   int _scoreB = 0;
 
-  // events: {tGlobal:int, phase:String, team:"A"/"B", playerNo:int, playerName:String}
+  // events:
+  // {
+  //  tGlobal:int, tPhase:int,
+  //  phase:String("前半"/"後半"),
+  //  team:"A"/"B",
+  //  playerNo:int,
+  //  playerName:String
+  // }
   final List<Map<String, dynamic>> _events = [];
 
-  int get _halfTotalSec => widget.halfMinutes * 60;
-  int get _breakTotalSec => widget.halftimeBreakMinutes * 60;
+  int get _halfPlannedSec => widget.halfMinutes * 60;
+  int get _breakPlannedSec => widget.halftimeBreakMinutes * 60;
 
-  int get _phaseTotalSec {
+  int get _phasePlannedSec {
     switch (_phase) {
       case MatchPhase.firstHalf:
-        return _halfTotalSec;
+        return _halfPlannedSec;
       case MatchPhase.halftime:
-        return _breakTotalSec;
+        return _breakPlannedSec;
       case MatchPhase.secondHalf:
-        return _halfTotalSec;
+        return _halfPlannedSec;
       case MatchPhase.finished:
         return 0;
     }
   }
 
-  int get _remainSec => (_phaseTotalSec - _elapsedInPhaseSec).clamp(0, _phaseTotalSec);
+  int get _remainSec => (_phasePlannedSec - _elapsedInPhaseSec).clamp(0, _phasePlannedSec);
 
   String _fmt(int sec) {
     final m = (sec ~/ 60).toString().padLeft(2, '0');
@@ -199,87 +219,65 @@ class _MatchScreenState extends State<MatchScreen> {
     }
   }
 
+  // ★自動遷移はしない：あくまで表示用のグローバル経過
   int get _globalElapsedSec {
-    int sec = 0;
+    final fh = _firstHalfElapsedSec ?? (_phase == MatchPhase.firstHalf ? _elapsedInPhaseSec : 0);
+    final ht = widget.hasHalftime
+        ? (_halftimeElapsedSec ?? (_phase == MatchPhase.halftime ? _elapsedInPhaseSec : 0))
+        : 0;
+    final sh = _secondHalfElapsedSec ?? (_phase == MatchPhase.secondHalf ? _elapsedInPhaseSec : 0);
 
-    if (_phase == MatchPhase.firstHalf) {
-      return _elapsedInPhaseSec;
-    }
-
-    sec += _halfTotalSec;
-
-    if (_phase == MatchPhase.halftime) {
-      sec += _elapsedInPhaseSec;
-      return sec;
-    }
-
-    if (widget.hasHalftime) sec += _breakTotalSec;
-
-    if (_phase == MatchPhase.secondHalf) {
-      sec += _elapsedInPhaseSec;
-      return sec;
-    }
-
-    sec += _halfTotalSec;
-    return sec;
+    // まだ到達してないフェーズは 0 として扱う
+    if (_phase == MatchPhase.firstHalf) return _elapsedInPhaseSec;
+    if (_phase == MatchPhase.halftime) return fh + _elapsedInPhaseSec;
+    if (_phase == MatchPhase.secondHalf) return fh + ht + _elapsedInPhaseSec;
+    // finished
+    return fh + ht + sh;
   }
 
-  void _start() {
+  void _startTimer() {
     if (_running) return;
     if (_phase == MatchPhase.finished) return;
 
     setState(() => _running = true);
 
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      final total = _phaseTotalSec;
-      if (total <= 0) return;
-
-      if (_elapsedInPhaseSec >= total) {
-        _stop();
-        _autoAdvancePhase();
-        return;
-      }
       setState(() => _elapsedInPhaseSec++);
     });
   }
 
-  void _stop() {
+  void _stopTimer() {
     _timer?.cancel();
     _timer = null;
     if (mounted) setState(() => _running = false);
   }
 
   void _resetAll() {
-    _stop();
+    _stopTimer();
     setState(() {
       _phase = MatchPhase.firstHalf;
       _elapsedInPhaseSec = 0;
+
+      _firstHalfElapsedSec = null;
+      _halftimeElapsedSec = null;
+      _secondHalfElapsedSec = null;
+
       _scoreA = 0;
       _scoreB = 0;
       _events.clear();
     });
   }
 
-  void _autoAdvancePhase() {
-    // 時間満了の自動遷移（ボタン遷移があるので補助）
-    if (_phase == MatchPhase.firstHalf) {
-      _toHalftimeOrSecondHalf();
-      return;
-    }
-    if (_phase == MatchPhase.halftime) {
-      _toSecondHalf();
-      return;
-    }
-    if (_phase == MatchPhase.secondHalf) {
-      _finish();
-      return;
-    }
-  }
+  // ===== 手動遷移 =====
 
-  void _toHalftimeOrSecondHalf() {
-    _stop();
+  void _endFirstHalf() {
+    if (_phase != MatchPhase.firstHalf) return;
+
+    _stopTimer();
     setState(() {
+      _firstHalfElapsedSec = _elapsedInPhaseSec;
       _elapsedInPhaseSec = 0;
+
       if (widget.hasHalftime) {
         _phase = MatchPhase.halftime;
       } else {
@@ -288,12 +286,46 @@ class _MatchScreenState extends State<MatchScreen> {
     });
   }
 
-  void _toSecondHalf() {
-    _stop();
+  void _endHalftime() {
+    if (_phase != MatchPhase.halftime) return;
+
+    _stopTimer();
     setState(() {
+      _halftimeElapsedSec = _elapsedInPhaseSec;
       _elapsedInPhaseSec = 0;
       _phase = MatchPhase.secondHalf;
     });
+  }
+
+  void _finishMatch() {
+    if (_phase != MatchPhase.secondHalf) return;
+
+    _stopTimer();
+    setState(() {
+      _secondHalfElapsedSec = _elapsedInPhaseSec;
+      _phase = MatchPhase.finished;
+    });
+
+    final totalElapsed = _globalElapsedSec;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => ResultScreen(
+          teamA: widget.teamA,
+          teamB: widget.teamB,
+          halfMinutes: widget.halfMinutes,
+          hasHalftime: widget.hasHalftime,
+          halftimeBreakMinutes: widget.halftimeBreakMinutes,
+          scoreA: _scoreA,
+          scoreB: _scoreB,
+          totalElapsedSec: totalElapsed,
+          // per half
+          firstHalfElapsedSec: _firstHalfElapsedSec ?? 0,
+          secondHalfElapsedSec: _secondHalfElapsedSec ?? 0,
+          events: List<Map<String, dynamic>>.from(_events),
+        ),
+      ),
+    );
   }
 
   Future<Map<String, dynamic>?> _pickScorer() async {
@@ -311,7 +343,7 @@ class _MatchScreenState extends State<MatchScreen> {
                 children: [
                   const Padding(
                     padding: EdgeInsets.all(12),
-                    child: Text('得点者を選択（背番号＋名前）', style: TextStyle(fontSize: 16)),
+                    child: Text('得点者（背番号＋名前）', style: TextStyle(fontSize: 16)),
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -354,6 +386,14 @@ class _MatchScreenState extends State<MatchScreen> {
     );
   }
 
+  String _eventPhaseForLog() {
+    // HT中は得点させないが、万一呼ばれても安全に
+    if (_phase == MatchPhase.firstHalf) return '前半';
+    if (_phase == MatchPhase.secondHalf) return '後半';
+    return _phaseLabel;
+    // 将来：AT/ET/PK を追加するならここに拡張
+  }
+
   Future<void> _goal(String team) async {
     if (_phase == MatchPhase.halftime || _phase == MatchPhase.finished) return;
 
@@ -366,8 +406,9 @@ class _MatchScreenState extends State<MatchScreen> {
     setState(() {
       _events.add({
         'tGlobal': _globalElapsedSec,
-        'phase': _phaseLabel,
-        'team': team,
+        'tPhase': _elapsedInPhaseSec,
+        'phase': _eventPhaseForLog(), // "前半"/"後半"
+        'team': team, // "A" or "B"
         'playerNo': no,
         'playerName': name,
       });
@@ -388,24 +429,41 @@ class _MatchScreenState extends State<MatchScreen> {
     });
   }
 
-  void _finish() {
-    _stop();
-    setState(() => _phase = MatchPhase.finished);
+  // ====== ★試合中の得点履歴：左右2カラム（左=TeamA / 右=TeamB）、チーム名不要 ======
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => ResultScreen(
-          teamA: widget.teamA,
-          teamB: widget.teamB,
-          halfMinutes: widget.halfMinutes,
-          hasHalftime: widget.hasHalftime,
-          halftimeBreakMinutes: widget.halftimeBreakMinutes,
-          scoreA: _scoreA,
-          scoreB: _scoreB,
-          totalElapsedSec: _globalElapsedSec,
-          events: List<Map<String, dynamic>>.from(_events),
-        ),
-      ),
+  List<Map<String, dynamic>> get _eventsA =>
+      _events.where((e) => e['team'] == 'A').toList();
+
+  List<Map<String, dynamic>> get _eventsB =>
+      _events.where((e) => e['team'] == 'B').toList();
+
+  String _eventTextInMatch(Map<String, dynamic> e) {
+    final phase = e['phase'] as String;
+    final time = _fmt(e['tPhase'] as int);
+    final no = e['playerNo'] as int;
+    final name = (e['playerName'] as String?) ?? '';
+    final who = name.isEmpty ? '#$no' : '#$no $name';
+    return '$phase $time  $who';
+  }
+
+  Widget _eventListColumn({
+    required List<Map<String, dynamic>> items,
+    required TextAlign align,
+  }) {
+    final reversed = items.reversed.toList(); // 最新が上
+    if (reversed.isEmpty) {
+      return const Text('—', style: TextStyle(color: Colors.black38));
+    }
+    return Column(
+      crossAxisAlignment:
+          align == TextAlign.right ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        for (final e in reversed)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text(_eventTextInMatch(e), textAlign: align),
+          ),
+      ],
     );
   }
 
@@ -454,28 +512,27 @@ class _MatchScreenState extends State<MatchScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 12),
+
                   Text(
-                    _phase == MatchPhase.finished
-                        ? '終了'
-                        : '残り ${_fmt(_remainSec)}   /   経過 ${_fmt(_elapsedInPhaseSec)}',
+                    // 自動遷移しないので「残り」は目安として表示
+                    '残り(目安) ${_fmt(_remainSec)}   /   経過 ${_fmt(_elapsedInPhaseSec)}',
                     style: const TextStyle(fontSize: 18),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 12),
 
-                  // ▶ 基本操作
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       FilledButton(
                         onPressed: (_running || _phase == MatchPhase.finished)
                             ? null
-                            : _start,
+                            : _startTimer,
                         child: const Text('開始'),
                       ),
                       const SizedBox(width: 8),
                       OutlinedButton(
-                        onPressed: _running ? _stop : null,
+                        onPressed: _running ? _stopTimer : null,
                         child: const Text('停止'),
                       ),
                       const SizedBox(width: 8),
@@ -489,25 +546,25 @@ class _MatchScreenState extends State<MatchScreen> {
 
                   const SizedBox(height: 12),
 
-                  // ▶ 手動遷移ボタン（あなたの要望）
+                  // ★手動遷移ボタン（自動遷移しない）
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       if (_phase == MatchPhase.firstHalf)
                         FilledButton.icon(
-                          onPressed: _toHalftimeOrSecondHalf,
+                          onPressed: _endFirstHalf,
                           icon: const Icon(Icons.skip_next),
                           label: const Text('前半終了'),
                         ),
                       if (_phase == MatchPhase.halftime)
                         FilledButton.icon(
-                          onPressed: _toSecondHalf,
+                          onPressed: _endHalftime,
                           icon: const Icon(Icons.skip_next),
                           label: const Text('HT終了'),
                         ),
                       if (_phase == MatchPhase.secondHalf)
                         FilledButton.icon(
-                          onPressed: _finish,
+                          onPressed: _finishMatch,
                           icon: const Icon(Icons.flag),
                           label: const Text('試合終了'),
                         ),
@@ -549,35 +606,24 @@ class _MatchScreenState extends State<MatchScreen> {
           ),
 
           const SizedBox(height: 16),
-          const Text('得点ログ（最新が上）', style: TextStyle(fontSize: 16)),
+          const Text('得点履歴（試合中）', style: TextStyle(fontSize: 16)),
           const SizedBox(height: 8),
 
-          if (_events.isEmpty)
-            const Text('まだ得点がありません', style: TextStyle(color: Colors.black54))
-          else
-            ..._events.reversed.map((e) {
-              final t = _fmt(e['tGlobal'] as int);
-              final phase = e['phase'] as String;
-              final team = e['team'] as String;
-              final no = e['playerNo'] as int;
-              final name = e['playerName'] as String;
-              final teamName = team == 'A' ? widget.teamA : widget.teamB;
-              final displayName = name.isEmpty ? '#$no' : '#$no $name';
-              return ListTile(
-                dense: true,
-                leading: Text('$phase $t'),
-                title: Text('$teamName  $displayName'),
-              );
-            }),
-
-          const SizedBox(height: 16),
-          // 既存の試合終了ボタン（後半以外では無効にしておく）
-          SizedBox(
-            height: 52,
-            child: FilledButton.icon(
-              onPressed: _phase == MatchPhase.secondHalf ? _finish : null,
-              icon: const Icon(Icons.flag),
-              label: const Text('試合終了（後半のみ）'),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _eventListColumn(items: _eventsA, align: TextAlign.left),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _eventListColumn(items: _eventsB, align: TextAlign.right),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -598,6 +644,9 @@ class ResultScreen extends StatelessWidget {
   final int scoreB;
   final int totalElapsedSec;
 
+  final int firstHalfElapsedSec;
+  final int secondHalfElapsedSec;
+
   final List<Map<String, dynamic>> events;
 
   const ResultScreen({
@@ -610,6 +659,8 @@ class ResultScreen extends StatelessWidget {
     required this.scoreA,
     required this.scoreB,
     required this.totalElapsedSec,
+    required this.firstHalfElapsedSec,
+    required this.secondHalfElapsedSec,
     required this.events,
   });
 
@@ -619,69 +670,222 @@ class ResultScreen extends StatelessWidget {
     return '$m:$s';
   }
 
+  List<Map<String, dynamic>> _eventsOf(String phase) {
+    return events.where((e) => e['phase'] == phase).toList();
+  }
+
+  ({int a, int b}) _scoreOf(List<Map<String, dynamic>> evs) {
+    int a = 0;
+    int b = 0;
+    for (final e in evs) {
+      if (e['team'] == 'A') a++;
+      if (e['team'] == 'B') b++;
+    }
+    return (a: a, b: b);
+  }
+
+  void _exportText({
+    required String title,
+    required String fileName,
+    required int elapsedSec,
+    required List<Map<String, dynamic>> evs,
+  }) {
+    final buffer = StringBuffer();
+    final score = _scoreOf(evs);
+
+    buffer.writeln(title);
+    buffer.writeln('$teamA  ${score.a} - ${score.b}  $teamB');
+    buffer.writeln('経過：${_fmt(elapsedSec)}');
+    buffer.writeln('');
+    buffer.writeln('得点詳細（時刻順）');
+
+    if (evs.isEmpty) {
+      buffer.writeln('得点なし');
+    } else {
+      for (final e in evs) {
+        final time = _fmt(e['tGlobal'] as int);
+        final teamName = e['team'] == 'A' ? teamA : teamB;
+        final no = e['playerNo'] as int;
+        final name = (e['playerName'] as String?) ?? '';
+        final who = name.isEmpty ? '#$no' : '#$no $name';
+        buffer.writeln('$time  $teamName  $who');
+      }
+    }
+
+    final text = buffer.toString();
+
+    // Flutter Web: txt ダウンロード
+    // ignore: avoid_web_libraries_in_flutter
+    final blob = html.Blob([text], 'text/plain');
+    // ignore: avoid_web_libraries_in_flutter
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    // ignore: avoid_web_libraries_in_flutter
+    final anchor = html.AnchorElement(href: url)
+      ..setAttribute('download', fileName)
+      ..click();
+    // ignore: avoid_web_libraries_in_flutter
+    html.Url.revokeObjectUrl(url);
+  }
+
+  Widget _resultBlock({
+    required String title,
+    required int elapsedSec,
+    required List<Map<String, dynamic>> evs,
+    required VoidCallback onExport,
+  }) {
+    final score = _scoreOf(evs);
+    final aEvents = evs.where((e) => e['team'] == 'A').toList();
+    final bEvents = evs.where((e) => e['team'] == 'B').toList();
+
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade300),
+      ),
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(vertical: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 8),
+
+            Center(
+              child: Text(
+                '$teamA  ${score.a}  -  ${score.b}  $teamB',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Center(
+              child: Text(
+                '経過：${_fmt(elapsedSec)}',
+                style: const TextStyle(color: Colors.black54),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            SizedBox(
+              height: 40,
+              child: FilledButton.icon(
+                onPressed: onExport,
+                icon: const Icon(Icons.download),
+                label: const Text('書き出し'),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Team A
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: aEvents.map((e) {
+                      final time = _fmt(e['tGlobal'] as int);
+                      final no = e['playerNo'] as int;
+                      final name = (e['playerName'] as String?) ?? '';
+                      final who = name.isEmpty ? '#$no' : '#$no $name';
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Text('$time  $who'),
+                      );
+                    }).toList(),
+                  ),
+                ),
+
+                const SizedBox(width: 16),
+
+                // Team B
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: bEvents.map((e) {
+                      final time = _fmt(e['tGlobal'] as int);
+                      final no = e['playerNo'] as int;
+                      final name = (e['playerName'] as String?) ?? '';
+                      final who = name.isEmpty ? '#$no' : '#$no $name';
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Text(
+                          '$time  $who',
+                          textAlign: TextAlign.right,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final scoreText = '$teamA  $scoreA  -  $scoreB  $teamB';
-
-    final matchTimeText = hasHalftime
-        ? '前半 $halfMinutes 分 + HT $halftimeBreakMinutes 分 + 後半 $halfMinutes 分'
-        : '前半 $halfMinutes 分 + 後半 $halfMinutes 分';
+    final firstHalfEvents = _eventsOf('前半');
+    final secondHalfEvents = _eventsOf('後半');
 
     return Scaffold(
       appBar: AppBar(title: const Text('Result')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Text(
-                    scoreText,
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(matchTimeText, style: const TextStyle(color: Colors.black54)),
-                  const SizedBox(height: 4),
-                  Text('経過：${_fmt(totalElapsedSec)}', style: const TextStyle(color: Colors.black54)),
-                ],
-              ),
+          _resultBlock(
+            title: 'Result（試合全体）',
+            elapsedSec: totalElapsedSec,
+            evs: events,
+            onExport: () => _exportText(
+              title: 'Result（試合全体）',
+              fileName: 'result_full.txt',
+              elapsedSec: totalElapsedSec,
+              evs: events,
             ),
           ),
-          const SizedBox(height: 16),
-          const Text('得点詳細（時刻順）', style: TextStyle(fontSize: 16)),
-          const SizedBox(height: 8),
-          if (events.isEmpty)
-            const Text('得点なし', style: TextStyle(color: Colors.black54))
-          else
-            ...events.map((e) {
-              final t = _fmt(e['tGlobal'] as int);
-              final phase = e['phase'] as String;
-              final team = e['team'] as String;
-              final no = e['playerNo'] as int;
-              final name = e['playerName'] as String;
-              final teamName = team == 'A' ? teamA : teamB;
-              final displayName = name.isEmpty ? '#$no' : '#$no $name';
-              return ListTile(
-                dense: true,
-                leading: Text('$phase $t'),
-                title: Text('$teamName  $displayName'),
-              );
-            }),
-          const SizedBox(height: 16),
+
+          _resultBlock(
+            title: 'Result（前半）',
+            elapsedSec: firstHalfElapsedSec,
+            evs: firstHalfEvents,
+            onExport: () => _exportText(
+              title: 'Result（前半）',
+              fileName: 'result_1st.txt',
+              elapsedSec: firstHalfElapsedSec,
+              evs: firstHalfEvents,
+            ),
+          ),
+
+          _resultBlock(
+            title: 'Result（後半）',
+            elapsedSec: secondHalfElapsedSec,
+            evs: secondHalfEvents,
+            onExport: () => _exportText(
+              title: 'Result（後半）',
+              fileName: 'result_2nd.txt',
+              elapsedSec: secondHalfElapsedSec,
+              evs: secondHalfEvents,
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
           SizedBox(
-            height: 52,
-            child: FilledButton.icon(
-              onPressed: () {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const HomeScreen()),
-                  (_) => false,
-                );
-              },
-              icon: const Icon(Icons.home),
-              label: const Text('ホームへ'),
+            height: 48,
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('戻る'),
             ),
           ),
         ],
@@ -689,3 +893,5 @@ class ResultScreen extends StatelessWidget {
     );
   }
 }
+
+
