@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:async';
-import 'dart:typed_data'
+import 'dart:typed_data';
 import 'dart:html' as html;
 import 'package:flutter/material.dart';
+import 'dart:js_util' as js_util;
+
 
 // ===============================
 // My Teams (localStorage)
@@ -1376,7 +1378,7 @@ class _MatchScreenState extends State<MatchScreen> {
                       ),
                       FilledButton(
                         onPressed: _running ? _stopTimer : _startTimer,
-                        child: Text(_running ? 'Stop' : 'Start'),
+                        child: Text(_running ? 'タイマーStop' : 'タイマーStart'),
                       ),
                     ],
                   ),
@@ -1813,54 +1815,80 @@ class ResultScreen extends StatelessWidget {
     return (a: a, b: b);
   }
 
-  // ★ここを修正：UTF-8 + BOM で書き出し（iPhoneの文字化け対策）
-  void _exportText({
-    required String title,
-    required String fileName,
-    required int elapsedSec,
-    required List<Map<String, dynamic>> evs,
-  }) {
-    // ★書き出し内容は変更しない（要望どおり）
-    final buffer = StringBuffer();
-    final score = _scoreOf(evs);
+void _exportText({
+  required String title,
+  required String fileName,
+  required int elapsedSec,
+  required List<Map<String, dynamic>> evs,
+}) async {
+  // ★書き出し内容は変更しない（要望どおり）
+  final buffer = StringBuffer();
+  final score = _scoreOf(evs);
 
-    buffer.writeln(title);
-    buffer.writeln('$teamA  ${score.a} - ${score.b}  $teamB');
-    buffer.writeln('経過：${_fmt(elapsedSec)}');
-    buffer.writeln('');
-    buffer.writeln('得点詳細（時刻順）');
+  buffer.writeln(title);
+  buffer.writeln('$teamA  ${score.a} - ${score.b}  $teamB');
+  buffer.writeln('経過：${_fmt(elapsedSec)}');
+  buffer.writeln('');
+  buffer.writeln('得点詳細（時刻順）');
 
-    if (evs.isEmpty) {
-      buffer.writeln('得点なし');
-    } else {
-      for (final e in evs) {
-        final time = _fmt((e['tGlobal'] as num).toInt());
-        final teamName = e['team'] == 'A' ? teamA : teamB;
-        final no = (e['playerNo'] as num).toInt();
-        final name = (e['playerName'] as String?) ?? '';
-        final who = name.isEmpty ? '#$no' : '#$no $name';
-        buffer.writeln('$time  $teamName  $who');
-      }
+  if (evs.isEmpty) {
+    buffer.writeln('得点なし');
+  } else {
+    for (final e in evs) {
+      final time = _fmt((e['tGlobal'] as num).toInt());
+      final teamName = e['team'] == 'A' ? teamA : teamB;
+      final no = (e['playerNo'] as num).toInt();
+      final name = (e['playerName'] as String?) ?? '';
+      final who = name.isEmpty ? '#$no' : '#$no $name';
+      buffer.writeln('$time  $teamName  $who');
     }
-
-    final text = buffer.toString();
-
-    // UTF-8 BOM + UTF-8 bytes
-    final bom = <int>[0xEF, 0xBB, 0xBF];
-    final bytes = utf8.encode(text);
-    final data = Uint8List.fromList([...bom, ...bytes]);
-
-    final blob = html.Blob(
-      [data],
-      'text/plain;charset=utf-8',
-    );
-
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    html.AnchorElement(href: url)
-      ..setAttribute('download', fileName)
-      ..click();
-    html.Url.revokeObjectUrl(url);
   }
+
+  final text = buffer.toString();
+
+  // UTF-8 BOM + bytes
+  final bom = <int>[0xEF, 0xBB, 0xBF];
+  final bytes = utf8.encode(text);
+  final data = Uint8List.fromList([...bom, ...bytes]);
+
+  // 共有用 File（Web Share API）
+  final file = html.File([data], fileName, {'type': 'text/plain;charset=utf-8'});
+
+  // Web Share API（対応端末は共有シートが出る）
+  try {
+    final nav = html.window.navigator;
+
+    final canShareFiles = (js_util.getProperty(nav, 'canShare') != null) &&
+        (js_util.callMethod(nav, 'canShare', [
+          js_util.jsify({'files': [file]})
+        ]) as bool);
+
+    final hasShare = js_util.getProperty(nav, 'share') != null;
+
+    if (hasShare && canShareFiles) {
+      await js_util.promiseToFuture(
+        js_util.callMethod(nav, 'share', [
+          js_util.jsify({
+            'title': 'SimpleScore',
+            'text': '試合結果を共有します',
+            'files': [file],
+          })
+        ]),
+      );
+      return; // 共有できたらここで終了
+    }
+  } catch (_) {
+    // 共有失敗 → ダウンロードへフォールバック
+  }
+
+  // フォールバック：従来どおりダウンロード
+  final blob = html.Blob([data], 'text/plain;charset=utf-8');
+  final url = html.Url.createObjectUrlFromBlob(blob);
+  html.AnchorElement(href: url)
+    ..setAttribute('download', fileName)
+    ..click();
+  html.Url.revokeObjectUrl(url);
+}
 
   Widget _resultBlock({
     required String title,
@@ -1911,7 +1939,7 @@ class ResultScreen extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: onExport,
                   icon: const Icon(Icons.download),
-                  label: const Text('書き出し'),
+                  label: const Text('共有/保存'),
                 ),
               ),
             ],
