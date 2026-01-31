@@ -1,10 +1,156 @@
+import 'dart:convert';
 import 'dart:async';
 import 'dart:html' as html;
 import 'package:flutter/material.dart';
 
+// ===============================
+// My Teams (localStorage)
+// ===============================
+
+const String _kMyTeamsStorageKey = 'my_teams_v1';
+
+List<MyTeam> myTeamsCache = [];
+
+class TeamMember {
+  final int number; // 0-99
+  final String name;
+
+  TeamMember({required this.number, required this.name});
+
+  Map<String, dynamic> toJson() => {
+        'number': number,
+        'name': name,
+      };
+
+  static TeamMember? tryFromJson(dynamic json) {
+    if (json is! Map) return null;
+    final numberRaw = json['number'];
+    final nameRaw = json['name'];
+
+    final int? number = (numberRaw is int)
+        ? numberRaw
+        : (numberRaw is num)
+            ? numberRaw.toInt()
+            : null;
+
+    final String? name = (nameRaw is String) ? nameRaw : null;
+
+    if (number == null || number < 0 || number > 99) return null;
+    if (name == null) return null;
+
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return null;
+
+    return TeamMember(number: number, name: trimmed);
+  }
+}
+
+class MyTeam {
+  final String id; // stable identifier
+  final String name;
+  final List<TeamMember> members;
+
+  MyTeam({required this.id, required this.name, required this.members});
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'members': members.map((m) => m.toJson()).toList(),
+      };
+
+  static MyTeam? tryFromJson(dynamic json) {
+    if (json is! Map) return null;
+    final idRaw = json['id'];
+    final nameRaw = json['name'];
+    final membersRaw = json['members'];
+
+    if (idRaw is! String || idRaw.trim().isEmpty) return null;
+    if (nameRaw is! String) return null;
+    final name = nameRaw.trim();
+
+    final List<TeamMember> members = [];
+    if (membersRaw is List) {
+      for (final m in membersRaw) {
+        final member = TeamMember.tryFromJson(m);
+        if (member != null) members.add(member);
+      }
+    }
+
+    return MyTeam(id: idRaw, name: name, members: members);
+  }
+}
+
+void loadMyTeamsBestEffort() {
+  try {
+    final jsonString = html.window.localStorage[_kMyTeamsStorageKey];
+    if (jsonString == null) {
+      myTeamsCache = [];
+      return;
+    }
+
+    final decoded = jsonDecode(jsonString);
+    if (decoded is! Map) {
+      myTeamsCache = [];
+      return;
+    }
+
+    final teamsRaw = decoded['teams'];
+    if (teamsRaw is! List) {
+      myTeamsCache = [];
+      return;
+    }
+
+    final List<MyTeam> teams = [];
+    for (final t in teamsRaw) {
+      final team = MyTeam.tryFromJson(t);
+      if (team != null) teams.add(team);
+    }
+
+    // Max 10 teams
+    myTeamsCache = teams.take(10).toList();
+  } catch (_) {
+    // Ignore any errors (best-effort)
+    myTeamsCache = [];
+  }
+}
+
+void saveMyTeamsBestEffort() {
+  try {
+    final payload = {
+      'version': 1,
+      'teams': myTeamsCache.take(10).map((t) => t.toJson()).toList(),
+    };
+    html.window.localStorage[_kMyTeamsStorageKey] = jsonEncode(payload);
+  } catch (_) {
+    // Ignore any errors (best-effort)
+  }
+}
+
+
+Map<String, dynamic>? latestMatchResult;
+
+void loadLatestMatchResult() {
+  try {
+    final jsonString = html.window.localStorage['latest_match_result'];
+    if (jsonString == null) return;
+
+    final decoded = jsonDecode(jsonString);
+    if (decoded is Map) {
+      latestMatchResult = decoded.map((k, v) => MapEntry('$k', v));
+    }
+  } catch (_) {
+    // Ignore any errors (best-effort)
+  }
+}
+
 void main() {
+  // Startup-only load (best-effort)
+  loadMyTeamsBestEffort();
+
   runApp(const SimpleScoreWebApp());
 }
+
+
 
 class SimpleScoreWebApp extends StatelessWidget {
   const SimpleScoreWebApp({super.key});
@@ -23,11 +169,15 @@ class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
 
   @override
-  State<SetupScreen> createState() => _SetupScreenState(); }
+  State<SetupScreen> createState() => _SetupScreenState();
+}
 
 class _SetupScreenState extends State<SetupScreen> {
   final _teamAController = TextEditingController(text: 'Team A');
   final _teamBController = TextEditingController(text: 'Team B');
+
+  String _teamASelectedId = '__manual__';
+  String _teamBSelectedId = '__manual__';
 
   int _halfMinutes = 20;
   bool _hasHalftime = true;
@@ -40,6 +190,34 @@ class _SetupScreenState extends State<SetupScreen> {
     super.dispose();
   }
 
+  void _openMyTeams() {
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const MyTeamsScreen()))
+        .then((_) {
+      // teams may have changed; keep UI in sync
+      setState(() {});
+    });
+  }
+
+  void _applyTeamToController({
+    required String selectedId,
+    required TextEditingController controller,
+  }) {
+    if (selectedId == '__manual__') return;
+
+    final team = myTeamsCache
+        .where((t) => t.id == selectedId)
+        .cast<MyTeam?>()
+        .firstWhere((t) => t != null, orElse: () => null);
+
+    if (team == null) return;
+
+    final name = team.name.trim();
+    if (name.isEmpty) return;
+
+    controller.text = name;
+  }
+
   void _startMatch() {
     final teamA = _teamAController.text.trim().isEmpty
         ? 'Team A'
@@ -48,11 +226,18 @@ class _SetupScreenState extends State<SetupScreen> {
         ? 'Team B'
         : _teamBController.text.trim();
 
+    final String? teamAId =
+        (_teamASelectedId == '__manual__') ? null : _teamASelectedId;
+    final String? teamBId =
+        (_teamBSelectedId == '__manual__') ? null : _teamBSelectedId;
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => MatchScreen(
           teamA: teamA,
           teamB: teamB,
+          teamAId: teamAId,
+          teamBId: teamBId,
           halfMinutes: _halfMinutes,
           hasHalftime: _hasHalftime,
           halftimeBreakMinutes: _halftimeBreakMinutes,
@@ -61,8 +246,38 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
+  List<DropdownMenuItem<String>> _buildTeamItems() {
+    final items = <DropdownMenuItem<String>>[
+      const DropdownMenuItem(
+        value: '__manual__',
+        child: Text('(manual)'),
+      ),
+    ];
+
+    for (final t in myTeamsCache) {
+      final name = t.name.trim();
+      if (name.isEmpty) continue;
+
+      items.add(
+        DropdownMenuItem(
+          value: t.id,
+          child: Text(name),
+        ),
+      );
+    }
+
+    return items;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final teamItems = _buildTeamItems();
+
+    // If selected team was deleted, fall back to manual
+    final validIds = teamItems.map((e) => e.value).toSet();
+    if (!validIds.contains(_teamASelectedId)) _teamASelectedId = '__manual__';
+    if (!validIds.contains(_teamBSelectedId)) _teamBSelectedId = '__manual__';
+
     return Scaffold(
       appBar: AppBar(title: const Text('Setup')),
       body: ListView(
@@ -73,16 +288,79 @@ class _SetupScreenState extends State<SetupScreen> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  TextField(
-                    controller: _teamAController,
-                    decoration: const InputDecoration(labelText: 'Team A'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _teamBController,
-                    decoration: const InputDecoration(labelText: 'Team B'),
+                  // My Teams
+                  SizedBox(
+                    height: 48,
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: _openMyTeams,
+                      child: const Text('My Teams'),
+                    ),
                   ),
                   const SizedBox(height: 16),
+
+                  // Team A selector + input
+                  Row(
+                    children: [
+                      const Expanded(child: Text('Team A (select or type)')),
+                      DropdownButton<String>(
+                        value: _teamASelectedId,
+                        items: teamItems,
+                        onChanged: (v) {
+                          if (v == null) return;
+                          setState(() {
+                            _teamASelectedId = v;
+                            _applyTeamToController(
+                              selectedId: v,
+                              controller: _teamAController,
+                            );
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _teamAController,
+                    decoration: const InputDecoration(
+                      labelText: 'Team A',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Team B selector + input
+                  Row(
+                    children: [
+                      const Expanded(child: Text('Team B (select or type)')),
+                      DropdownButton<String>(
+                        value: _teamBSelectedId,
+                        items: teamItems,
+                        onChanged: (v) {
+                          if (v == null) return;
+                          setState(() {
+                            _teamBSelectedId = v;
+                            _applyTeamToController(
+                              selectedId: v,
+                              controller: _teamBController,
+                            );
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _teamBController,
+                    decoration: const InputDecoration(
+                      labelText: 'Team B',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
                   Row(
                     children: [
                       const Expanded(child: Text('Half minutes')),
@@ -104,6 +382,7 @@ class _SetupScreenState extends State<SetupScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
+
                   SwitchListTile(
                     value: _hasHalftime,
                     onChanged: (v) => setState(() => _hasHalftime = v),
@@ -132,7 +411,9 @@ class _SetupScreenState extends State<SetupScreen> {
                       ],
                     ),
                   ],
+
                   const SizedBox(height: 16),
+
                   SizedBox(
                     height: 52,
                     width: double.infinity,
@@ -151,6 +432,289 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 }
 
+
+class MyTeamsScreen extends StatefulWidget {
+  const MyTeamsScreen({super.key});
+
+  @override
+  State<MyTeamsScreen> createState() => _MyTeamsScreenState();
+}
+
+class _MyTeamsScreenState extends State<MyTeamsScreen> {
+  void _addTeam() {
+    if (myTeamsCache.length >= 10) return;
+
+    final newTeam = MyTeam(
+      id: 'team_${DateTime.now().millisecondsSinceEpoch}',
+      name: '',
+      members: [],
+    );
+
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (_) => TeamEditorScreen(team: newTeam, isNew: true),
+          ),
+        )
+        .then((_) {
+      setState(() {});
+    });
+  }
+
+  void _editTeam(MyTeam team) {
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (_) => TeamEditorScreen(team: team, isNew: false),
+          ),
+        )
+        .then((_) {
+      setState(() {});
+    });
+  }
+
+  void _deleteTeam(MyTeam team) {
+    setState(() {
+      myTeamsCache.removeWhere((t) => t.id == team.id);
+      saveMyTeamsBestEffort();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canAdd = myTeamsCache.length < 10;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('My Teams'),
+        actions: [
+          IconButton(
+            onPressed: canAdd ? _addTeam : null,
+            icon: const Icon(Icons.add),
+            tooltip: 'Add team',
+          ),
+        ],
+      ),
+      body: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: myTeamsCache.length + (canAdd ? 1 : 0),
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, index) {
+          if (canAdd && index == myTeamsCache.length) {
+            return Card(
+              child: ListTile(
+                title: const Text('Add new team'),
+                subtitle: const Text('Up to 10 teams'),
+                trailing: const Icon(Icons.add),
+                onTap: _addTeam,
+              ),
+            );
+          }
+
+          final team = myTeamsCache[index];
+          final displayName = team.name.trim().isEmpty ? '(Unnamed team)' : team.name.trim();
+          return Card(
+            child: ListTile(
+              title: Text(displayName),
+              subtitle: Text('Members: ${team.members.length}'),
+              onTap: () => _editTeam(team),
+              trailing: IconButton(
+                icon: const Icon(Icons.delete_outline),
+                onPressed: () => _deleteTeam(team),
+                tooltip: 'Delete',
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class TeamEditorScreen extends StatefulWidget {
+  final MyTeam team;
+  final bool isNew;
+
+  const TeamEditorScreen({
+    super.key,
+    required this.team,
+    required this.isNew,
+  });
+
+  @override
+  State<TeamEditorScreen> createState() => _TeamEditorScreenState();
+}
+
+class _TeamEditorScreenState extends State<TeamEditorScreen> {
+  late final TextEditingController _teamNameController;
+
+  // Simple row editors
+  final List<TextEditingController> _numberControllers = [];
+  final List<TextEditingController> _nameControllers = [];
+
+  @override
+  void initState() {
+    super.initState();
+
+    _teamNameController = TextEditingController(text: widget.team.name);
+
+    // seed from existing members
+    for (final m in widget.team.members) {
+      _numberControllers.add(TextEditingController(text: '${m.number}'));
+      _nameControllers.add(TextEditingController(text: m.name));
+    }
+
+    // provide some empty rows for convenience
+    _ensureMinRows(12);
+  }
+
+  void _ensureMinRows(int min) {
+    while (_numberControllers.length < min) {
+      _numberControllers.add(TextEditingController());
+      _nameControllers.add(TextEditingController());
+    }
+  }
+
+  @override
+  void dispose() {
+    _teamNameController.dispose();
+    for (final c in _numberControllers) {
+      c.dispose();
+    }
+    for (final c in _nameControllers) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  void _addRow() {
+    setState(() {
+      _numberControllers.add(TextEditingController());
+      _nameControllers.add(TextEditingController());
+    });
+  }
+
+  void _save() {
+    // Best-effort parse: ignore invalid/empty rows
+    final name = _teamNameController.text.trim();
+
+    final List<TeamMember> members = [];
+    final seenNumbers = <int>{};
+
+    for (int i = 0; i < _numberControllers.length; i++) {
+      final numText = _numberControllers[i].text.trim();
+      final playerName = _nameControllers[i].text.trim();
+
+      if (numText.isEmpty && playerName.isEmpty) continue;
+
+      final n = int.tryParse(numText);
+      if (n == null || n < 0 || n > 99) continue;
+      if (playerName.isEmpty) continue;
+
+      // Best-effort uniqueness: keep first, ignore duplicates
+      if (seenNumbers.contains(n)) continue;
+      seenNumbers.add(n);
+
+      members.add(TeamMember(number: n, name: playerName));
+    }
+
+    final updated = MyTeam(
+      id: widget.team.id,
+      name: name,
+      members: members,
+    );
+
+    setState(() {
+      if (widget.isNew) {
+        // Add new (max 10)
+        if (myTeamsCache.length < 10) {
+          myTeamsCache.add(updated);
+        }
+      } else {
+        final idx = myTeamsCache.indexWhere((t) => t.id == widget.team.id);
+        if (idx >= 0) {
+          myTeamsCache[idx] = updated;
+        }
+      }
+      saveMyTeamsBestEffort();
+    });
+
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.isNew ? 'New Team' : 'Edit Team'),
+        actions: [
+          TextButton(
+            onPressed: _save,
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          TextField(
+            controller: _teamNameController,
+            decoration: const InputDecoration(
+              labelText: 'Team name',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          Row(
+            children: [
+              const Expanded(child: Text('Members (No. / Name)')),
+              IconButton(
+                onPressed: _addRow,
+                icon: const Icon(Icons.add),
+                tooltip: 'Add row',
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          ...List.generate(_numberControllers.length, (i) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 90,
+                    child: TextField(
+                      controller: _numberControllers[i],
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'No.',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: _nameControllers[i],
+                      decoration: const InputDecoration(
+                        labelText: 'Name',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+
 enum MatchPhase {
   firstHalf,
   halftime,
@@ -163,9 +727,15 @@ enum MatchPhase {
 
 enum _DrawChoice { overtime, pk, end }
 
+
 class MatchScreen extends StatefulWidget {
   final String teamA;
   final String teamB;
+
+  // NEW: link to My Teams roster (optional)
+  final String? teamAId;
+  final String? teamBId;
+
   final int halfMinutes;
   final bool hasHalftime;
   final int halftimeBreakMinutes;
@@ -177,10 +747,13 @@ class MatchScreen extends StatefulWidget {
     required this.halfMinutes,
     required this.hasHalftime,
     required this.halftimeBreakMinutes,
+    this.teamAId,
+    this.teamBId,
   });
 
   @override
-  State<MatchScreen> createState() => _MatchScreenState(); }
+  State<MatchScreen> createState() => _MatchScreenState();
+}
 
 class _MatchScreenState extends State<MatchScreen> {
   Timer? _timer;
@@ -208,7 +781,7 @@ class _MatchScreenState extends State<MatchScreen> {
   // events:
   // {
   //  tGlobal:int, tPhase:int,
-  //  phase:String("前半"/"後半"/"延長前半"/"延長後半"),
+  //  phase:String("前半"/"後半"/"延長前半"/"延長後半"), 
   //  team:"A"/"B",
   //  playerNo:int,
   //  playerName:String
@@ -217,6 +790,27 @@ class _MatchScreenState extends State<MatchScreen> {
 
   // 延長は固定（シンプル版）
   static const int _extraMinutes = 5;
+
+  // NEW: rosters from My Teams (optional)
+  List<TeamMember> _rosterA = [];
+  List<TeamMember> _rosterB = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _rosterA = _resolveRoster(widget.teamAId);
+    _rosterB = _resolveRoster(widget.teamBId);
+  }
+
+  List<TeamMember> _resolveRoster(String? teamId) {
+    if (teamId == null) return [];
+    final team = myTeamsCache
+        .where((t) => t.id == teamId)
+        .cast<MyTeam?>()
+        .firstWhere((t) => t != null, orElse: () => null);
+    if (team == null) return [];
+    return List<TeamMember>.from(team.members);
+  }
 
   int get _halfPlannedSec => widget.halfMinutes * 60;
   int get _breakPlannedSec => widget.halftimeBreakMinutes * 60;
@@ -259,64 +853,43 @@ class _MatchScreenState extends State<MatchScreen> {
   }
 
   int get _globalElapsedSec {
-    int sec = 0;
+    int sum = 0;
+    if (_firstHalfElapsedSec != null) sum += _firstHalfElapsedSec!;
+    if (_secondHalfElapsedSec != null) sum += _secondHalfElapsedSec!;
+    if (_extraFirstHalfElapsedSec != null) sum += _extraFirstHalfElapsedSec!;
+    if (_extraSecondHalfElapsedSec != null) sum += _extraSecondHalfElapsedSec!;
 
-    // 前半
-    sec += _firstHalfElapsedSec ??
-        (_phase == MatchPhase.firstHalf ? _elapsedInPhaseSec : 0);
-
-    // HT
-    sec += _halftimeElapsedSec ??
-        (_phase == MatchPhase.halftime ? _elapsedInPhaseSec : 0);
-
-    // 後半
-    sec += _secondHalfElapsedSec ??
-        (_phase == MatchPhase.secondHalf ? _elapsedInPhaseSec : 0);
-
-    // 延長前半
-    sec += _extraFirstHalfElapsedSec ??
-        (_phase == MatchPhase.extraFirstHalf ? _elapsedInPhaseSec : 0);
-
-    // 延長後半
-    sec += _extraSecondHalfElapsedSec ??
-        (_phase == MatchPhase.extraSecondHalf ? _elapsedInPhaseSec : 0);
-
-    // PKは時間に含めない
-    return sec;
+    // current phase running time (except finished)
+    if (_phase != MatchPhase.finished) sum += _elapsedInPhaseSec;
+    return sum;
   }
 
   void _startTimer() {
     if (_running) return;
-    if (_phase == MatchPhase.finished) return;
-    if (_phase == MatchPhase.penaltyShootout) return;
-
-    setState(() => _running = true);
-
-    _timer?.cancel();
+    _running = true;
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      setState(() => _elapsedInPhaseSec++);
+      setState(() {
+        _elapsedInPhaseSec++;
+      });
     });
   }
 
   void _stopTimer() {
+    _running = false;
     _timer?.cancel();
     _timer = null;
-    setState(() => _running = false);
   }
 
-  void _resetAll() {
+  void _resetMatch() {
     _stopTimer();
     setState(() {
       _phase = MatchPhase.firstHalf;
       _elapsedInPhaseSec = 0;
-
       _firstHalfElapsedSec = null;
       _halftimeElapsedSec = null;
       _secondHalfElapsedSec = null;
       _extraFirstHalfElapsedSec = null;
       _extraSecondHalfElapsedSec = null;
-
       _scoreA = 0;
       _scoreB = 0;
       _pkA = 0;
@@ -351,42 +924,90 @@ class _MatchScreenState extends State<MatchScreen> {
     }
   }
 
-  Future<Map<String, dynamic>?> _pickScorer() async {
-    int no = 0;
-    String name = '';
+  Future<Map<String, dynamic>?> _pickScorer({
+    required String team,
+    required List<TeamMember> roster,
+  }) async {
+    final numberCtrl = TextEditingController(text: '0');
+    final nameCtrl = TextEditingController(text: '');
+
+    String selected = '__manual__';
+
+    // If roster exists, default to manual but allow selection
+    final items = <DropdownMenuItem<String>>[
+      const DropdownMenuItem(value: '__manual__', child: Text('(manual)')),
+      ...roster.map(
+        (m) => DropdownMenuItem(
+          value: '${m.number}|${m.name}',
+          child: Text('#${m.number}  ${m.name}'),
+        ),
+      ),
+    ];
 
     return showDialog<Map<String, dynamic>>(
       context: context,
       builder: (_) {
-        return AlertDialog(
-          title: const Text('得点者'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                decoration: const InputDecoration(labelText: '背番号 (0-99)'),
-                keyboardType: TextInputType.number,
-                onChanged: (v) {
-                  final n = int.tryParse(v);
-                  if (n != null) no = n.clamp(0, 99);
-                },
+        return StatefulBuilder(
+          builder: (context, setLocal) {
+            return AlertDialog(
+              title: Text('得点者（${team == "A" ? widget.teamA : widget.teamB}）'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (roster.isNotEmpty) ...[
+                    Row(
+                      children: [
+                        const Expanded(child: Text('選手名簿')),
+                        DropdownButton<String>(
+                          value: selected,
+                          items: items,
+                          onChanged: (v) {
+                            if (v == null) return;
+                            setLocal(() => selected = v);
+
+                            if (v == '__manual__') return;
+
+                            final parts = v.split('|');
+                            if (parts.length != 2) return;
+
+                            final n = int.tryParse(parts[0]) ?? 0;
+                            numberCtrl.text = n.clamp(0, 99).toString();
+                            nameCtrl.text = parts[1];
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  TextField(
+                    controller: numberCtrl,
+                    decoration: const InputDecoration(labelText: '背番号 (0-99)'),
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(labelText: '名前（任意）'),
+                  ),
+                ],
               ),
-              TextField(
-                decoration: const InputDecoration(labelText: '名前（任意）'),
-                onChanged: (v) => name = v,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('キャンセル'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, {'no': no, 'name': name}),
-              child: const Text('OK'),
-            ),
-          ],
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('キャンセル'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final no = int.tryParse(numberCtrl.text.trim()) ?? 0;
+                    final fixedNo = no.clamp(0, 99);
+                    final name = nameCtrl.text.trim();
+                    Navigator.pop(context, {'no': fixedNo, 'name': name});
+                  },
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -398,7 +1019,9 @@ class _MatchScreenState extends State<MatchScreen> {
     // PKは専用UIで +1 する（通常入力は使わない）
     if (_phase == MatchPhase.penaltyShootout) return;
 
-    final picked = await _pickScorer();
+    final roster = (team == 'A') ? _rosterA : _rosterB;
+
+    final picked = await _pickScorer(team: team, roster: roster);
     if (picked == null) return;
 
     final no = picked['no'] as int;
@@ -434,61 +1057,27 @@ class _MatchScreenState extends State<MatchScreen> {
     if (_phase != MatchPhase.firstHalf) return;
 
     _stopTimer();
-    final firstHalfSec = _elapsedInPhaseSec;
-
     setState(() {
-      _firstHalfElapsedSec = firstHalfSec;
+      _firstHalfElapsedSec = _elapsedInPhaseSec;
       _elapsedInPhaseSec = 0;
-
-      if (widget.hasHalftime) {
-        _phase = MatchPhase.halftime;
-      } else {
-        _phase = MatchPhase.secondHalf;
-      }
+      _phase = MatchPhase.halftime;
     });
-
-    if (!widget.hasHalftime) return;
-    await _openHalftimeScreen();
   }
 
-  Future<void> _openHalftimeScreen() async {
+  // ===== Step6: HT終了 → 後半へ =====
+  Future<void> _endHalftime() async {
     if (_phase != MatchPhase.halftime) return;
 
-    final firstHalfSec = _firstHalfElapsedSec ?? 0;
-
-    final result = await Navigator.of(context).push<Map<String, dynamic>>(
-      MaterialPageRoute(
-        builder: (_) => HalftimeScreen(
-          teamA: widget.teamA,
-          teamB: widget.teamB,
-          halftimeBreakMinutes: widget.halftimeBreakMinutes,
-          firstHalfElapsedSec: firstHalfSec,
-          scoreA: _scoreA,
-          scoreB: _scoreB,
-          events: _events,
-        ),
-      ),
-    );
-
-    if (!mounted) return;
-    if (result == null) return; // back で戻った場合は HTのまま
-
+    _stopTimer();
     setState(() {
-      _halftimeElapsedSec = result['halftimeElapsedSec'] as int;
-      _scoreA = result['scoreA'] as int;
-      _scoreB = result['scoreB'] as int;
-
-      _events
-        ..clear()
-        ..addAll(List<Map<String, dynamic>>.from(result['events'] as List));
-
+      _halftimeElapsedSec = _elapsedInPhaseSec;
       _elapsedInPhaseSec = 0;
       _phase = MatchPhase.secondHalf;
     });
   }
 
-  // ===== Step7: 後半終了（同点なら延長/PK/終了を選ぶ）=====
-  Future<void> _finishSecondHalf() async {
+  // ===== Step6: 後半終了 → 試合終了(引き分けなら延長/PK確認) =====
+  Future<void> _endSecondHalf() async {
     if (_phase != MatchPhase.secondHalf) return;
 
     _stopTimer();
@@ -497,45 +1086,45 @@ class _MatchScreenState extends State<MatchScreen> {
       _elapsedInPhaseSec = 0;
     });
 
-    if (_scoreA != _scoreB) {
-      _goResult();
-      return;
+    if (_scoreA == _scoreB) {
+      final goNext = await showDialog<String>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('同点です'),
+          content: const Text('延長戦またはPK戦を行いますか？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'finish'),
+              child: const Text('試合終了'),
+            ),
+            OutlinedButton(
+              onPressed: () => Navigator.pop(context, 'extra'),
+              child: const Text('延長'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, 'pk'),
+              child: const Text('PK'),
+            ),
+          ],
+        ),
+      );
+
+      if (goNext == 'extra') {
+        setState(() => _phase = MatchPhase.extraFirstHalf);
+        return;
+      }
+      if (goNext == 'pk') {
+        setState(() => _phase = MatchPhase.penaltyShootout);
+        return;
+      }
     }
 
-    final choice = await _showDrawDialog(
-      title: '引き分けです',
-      message: '延長戦、PK、または試合終了を選んでください。',
-      allowOvertime: true,
-      allowPK: true,
-      allowEnd: true,
-    );
-
-    if (!mounted) return;
-
-    if (choice == _DrawChoice.overtime) {
-      setState(() {
-        _phase = MatchPhase.extraFirstHalf;
-        _elapsedInPhaseSec = 0;
-      });
-      return;
-    }
-    if (choice == _DrawChoice.pk) {
-      setState(() {
-        _phase = MatchPhase.penaltyShootout;
-        _elapsedInPhaseSec = 0;
-        _pkA = 0;
-        _pkB = 0;
-      });
-      return;
-    }
-
-    // end または null（ダイアログ閉じた）→ ここでは「試合終了」押下の意図を尊重して Resultへ
-    _goResult();
+    setState(() => _phase = MatchPhase.finished);
   }
 
-  void _endExtraFirstHalf() {
+  // ===== 延長前半終了 → 延長後半 =====
+  Future<void> _endExtraFirstHalf() async {
     if (_phase != MatchPhase.extraFirstHalf) return;
-
     _stopTimer();
     setState(() {
       _extraFirstHalfElapsedSec = _elapsedInPhaseSec;
@@ -544,92 +1133,34 @@ class _MatchScreenState extends State<MatchScreen> {
     });
   }
 
+  // ===== 延長後半終了 → PK or 試合終了 =====
   Future<void> _endExtraSecondHalf() async {
     if (_phase != MatchPhase.extraSecondHalf) return;
-
     _stopTimer();
     setState(() {
       _extraSecondHalfElapsedSec = _elapsedInPhaseSec;
       _elapsedInPhaseSec = 0;
     });
 
-    if (_scoreA != _scoreB) {
-      _goResult();
+    if (_scoreA == _scoreB) {
+      setState(() => _phase = MatchPhase.penaltyShootout);
       return;
     }
-
-    final choice = await _showDrawDialog(
-      title: '延長でも引き分けです',
-      message: 'PKに進むか、試合終了を選んでください。',
-      allowOvertime: false,
-      allowPK: true,
-      allowEnd: true,
-    );
-
-    if (!mounted) return;
-
-    if (choice == _DrawChoice.pk) {
-      setState(() {
-        _phase = MatchPhase.penaltyShootout;
-        _elapsedInPhaseSec = 0;
-        _pkA = 0;
-        _pkB = 0;
-      });
-      return;
-    }
-
-    _goResult();
-  }
-
-  Future<_DrawChoice?> _showDrawDialog({
-    required String title,
-    required String message,
-    required bool allowOvertime,
-    required bool allowPK,
-    required bool allowEnd,
-  }) {
-    return showDialog<_DrawChoice>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          if (allowEnd)
-            TextButton(
-              onPressed: () => Navigator.pop(context, _DrawChoice.end),
-              child: const Text('試合終了'),
-            ),
-          if (allowOvertime)
-            FilledButton(
-              onPressed: () => Navigator.pop(context, _DrawChoice.overtime),
-              child: const Text('延長へ'),
-            ),
-          if (allowPK)
-            FilledButton.tonal(
-              onPressed: () => Navigator.pop(context, _DrawChoice.pk),
-              child: const Text('PKへ'),
-            ),
-        ],
-      ),
-    );
-  }
-
-  void _pkPlus(String team) {
-    if (_phase != MatchPhase.penaltyShootout) return;
-    setState(() {
-      if (team == 'A') _pkA++;
-      if (team == 'B') _pkB++;
-    });
-  }
-
-  void _finishPK() {
-    if (_phase != MatchPhase.penaltyShootout) return;
-    _goResult();
-  }
-
-  void _goResult() {
     setState(() => _phase = MatchPhase.finished);
+  }
 
+  void _addPkA() {
+    if (_phase != MatchPhase.penaltyShootout) return;
+    setState(() => _pkA++);
+  }
+
+  void _addPkB() {
+    if (_phase != MatchPhase.penaltyShootout) return;
+    setState(() => _pkB++);
+  }
+
+  void _finishMatch() {
+    _stopTimer();
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => ResultScreen(
@@ -647,64 +1178,26 @@ class _MatchScreenState extends State<MatchScreen> {
           extraSecondHalfElapsedSec: _extraSecondHalfElapsedSec ?? 0,
           pkA: _pkA,
           pkB: _pkB,
-          events: _events,
+          events: List<Map<String, dynamic>>.from(_events),
         ),
       ),
     );
   }
 
-  List<Map<String, dynamic>> _eventsOfTeam(String team) =>
-      _events.where((e) => e['team'] == team).toList();
-
-  Widget _buildTeamEventsColumn({
-    required List<Map<String, dynamic>> events,
-    required bool alignRight,
-  }) {
-    if (events.isEmpty) {
-      return Text(
-        '—',
-        textAlign: alignRight ? TextAlign.right : TextAlign.left,
-        style: const TextStyle(color: Colors.black45),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment:
-          alignRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-      children: events.map((e) {
-        final t = _fmt(e['tGlobal'] as int);
-        final no = e['playerNo'] as int;
-        final name = (e['playerName'] as String?)?.trim() ?? '';
-        final who = name.isEmpty ? '#$no' : '#$no $name';
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: Text(
-            '$t  $who',
-            textAlign: alignRight ? TextAlign.right : TextAlign.left,
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final scoreText = '${widget.teamA}  $_scoreA  -  $_scoreB  ${widget.teamB}';
+    final phaseTimeText = _phasePlannedSec > 0
+        ? '${_fmt(_elapsedInPhaseSec)} / ${_fmt(_phasePlannedSec)}'
+        : _fmt(_elapsedInPhaseSec);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Match（$_phaseLabel）'),
+        title: Text('${widget.teamA} vs ${widget.teamB}'),
         actions: [
           IconButton(
-            onPressed: _resetAll,
-            tooltip: '全リセット',
-            icon: const Icon(Icons.restart_alt),
+            onPressed: _resetMatch,
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Reset',
           ),
         ],
       ),
@@ -716,211 +1209,103 @@ class _MatchScreenState extends State<MatchScreen> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Chip(
-                        label: Text(_phaseLabel),
-                        avatar: const Icon(Icons.sports_soccer, size: 18),
-                      ),
-                    ],
-                  ),
+                  Text(_phaseLabel, style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 8),
-                  Text(
-                    scoreText,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  if (_phase == MatchPhase.penaltyShootout) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      'PK  $_pkA  -  $_pkB',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-
-                  if (_phase != MatchPhase.penaltyShootout) ...[
-                    Text(
-                      '残り(目安) ${_fmt(_phaseRemainingSec)}   /   経過 ${_fmt(_elapsedInPhaseSec)}',
-                      style: const TextStyle(fontSize: 18),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        FilledButton(
-                          onPressed: (_running || _phase == MatchPhase.finished)
-                              ? null
-                              : _startTimer,
-                          child: const Text('開始'),
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton(
-                          onPressed: _running ? _stopTimer : null,
-                          child: const Text('停止'),
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton.icon(
-                          onPressed: _events.isEmpty ? null : _undoLastGoal,
-                          icon: const Icon(Icons.undo),
-                          label: const Text('取り消し'),
-                        ),
-                      ],
-                    ),
-                  ] else ...[
-                    // PK中はタイマー無し
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: _events.isEmpty ? null : _undoLastGoal,
-                          icon: const Icon(Icons.undo),
-                          label: const Text('取り消し（通常得点のみ）'),
-                        ),
-                      ],
-                    ),
-                  ],
-
-                  const SizedBox(height: 12),
-
-                  // 手動遷移ボタン（自動遷移しない）
+                  Text(phaseTimeText, style: Theme.of(context).textTheme.headlineMedium),
+                  const SizedBox(height: 16),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      if (_phase == MatchPhase.firstHalf)
-                        FilledButton.icon(
-                          onPressed: _endFirstHalf,
-                          icon: const Icon(Icons.skip_next),
-                          label: const Text('前半終了'),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            Text(widget.teamA),
+                            Text('$_scoreA', style: Theme.of(context).textTheme.displaySmall),
+                            const SizedBox(height: 8),
+                            FilledButton(
+                              onPressed: () => _goal('A'),
+                              child: const Text('+ Goal'),
+                            ),
+                          ],
                         ),
-                      if (_phase == MatchPhase.halftime)
-                        FilledButton.icon(
-                          onPressed: _openHalftimeScreen,
-                          icon: const Icon(Icons.open_in_new),
-                          label: const Text('HT画面'),
+                      ),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            Text(widget.teamB),
+                            Text('$_scoreB', style: Theme.of(context).textTheme.displaySmall),
+                            const SizedBox(height: 8),
+                            FilledButton(
+                              onPressed: () => _goal('B'),
+                              child: const Text('+ Goal'),
+                            ),
+                          ],
                         ),
-                      if (_phase == MatchPhase.secondHalf)
-                        FilledButton.icon(
-                          onPressed: _finishSecondHalf,
-                          icon: const Icon(Icons.flag),
-                          label: const Text('試合終了'),
-                        ),
-                      if (_phase == MatchPhase.extraFirstHalf)
-                        FilledButton.icon(
-                          onPressed: _endExtraFirstHalf,
-                          icon: const Icon(Icons.skip_next),
-                          label: const Text('延長前半終了'),
-                        ),
-                      if (_phase == MatchPhase.extraSecondHalf)
-                        FilledButton.icon(
-                          onPressed: _endExtraSecondHalf,
-                          icon: const Icon(Icons.flag),
-                          label: const Text('延長後半終了'),
-                        ),
-                      if (_phase == MatchPhase.penaltyShootout)
-                        FilledButton.icon(
-                          onPressed: _finishPK,
-                          icon: const Icon(Icons.flag),
-                          label: const Text('PK終了 → Result'),
-                        ),
+                      ),
                     ],
                   ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      OutlinedButton(
+                        onPressed: _undoLastGoal,
+                        child: const Text('Undo'),
+                      ),
+                      FilledButton(
+                        onPressed: _running ? _stopTimer : _startTimer,
+                        child: Text(_running ? 'Stop' : 'Start'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  if (_phase == MatchPhase.firstHalf)
+                    FilledButton(onPressed: _endFirstHalf, child: const Text('前半終了')),
+                  if (_phase == MatchPhase.halftime)
+                    FilledButton(onPressed: _endHalftime, child: const Text('後半開始')),
+                  if (_phase == MatchPhase.secondHalf)
+                    FilledButton(onPressed: _endSecondHalf, child: const Text('後半終了')),
+
+                  if (_phase == MatchPhase.extraFirstHalf)
+                    FilledButton(onPressed: _endExtraFirstHalf, child: const Text('延長前半終了')),
+                  if (_phase == MatchPhase.extraSecondHalf)
+                    FilledButton(onPressed: _endExtraSecondHalf, child: const Text('延長後半終了')),
 
                   if (_phase == MatchPhase.penaltyShootout) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
+                    Text('PK: ${widget.teamA} $_pkA - $_pkB ${widget.teamB}'),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
-                          child: SizedBox(
-                            height: 52,
-                            child: FilledButton(
-                              onPressed: () => _pkPlus('A'),
-                              child: Text('${widget.teamA} PK+1'),
-                            ),
+                          child: OutlinedButton(
+                            onPressed: _addPkA,
+                            child: Text('${widget.teamA} +1'),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 10),
                         Expanded(
-                          child: SizedBox(
-                            height: 52,
-                            child: FilledButton(
-                              onPressed: () => _pkPlus('B'),
-                              child: Text('${widget.teamB} PK+1'),
-                            ),
+                          child: OutlinedButton(
+                            onPressed: _addPkB,
+                            child: Text('${widget.teamB} +1'),
                           ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: () => setState(() => _phase = MatchPhase.finished),
+                      child: const Text('PK終了'),
+                    ),
                   ],
-                ],
-              ),
-            ),
-          ),
 
-          const SizedBox(height: 12),
-
-          // 通常の得点入力（PK中は無効）
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 52,
-                  child: FilledButton(
-                    onPressed: (_phase == MatchPhase.finished ||
-                            _phase == MatchPhase.penaltyShootout)
-                        ? null
-                        : () => _goal('A'),
-                    child: Text('${widget.teamA} 得点'),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: SizedBox(
-                  height: 52,
-                  child: FilledButton(
-                    onPressed: (_phase == MatchPhase.finished ||
-                            _phase == MatchPhase.penaltyShootout)
-                        ? null
-                        : () => _goal('B'),
-                    child: Text('${widget.teamB} 得点'),
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-          const Text('得点履歴（試合中）', style: TextStyle(fontSize: 16)),
-          const SizedBox(height: 8),
-
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _buildTeamEventsColumn(
-                      events: _eventsOfTeam('A'),
-                      alignRight: false,
+                  if (_phase == MatchPhase.finished) ...[
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: _finishMatch,
+                      child: const Text('試合結果へ'),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildTeamEventsColumn(
-                      events: _eventsOfTeam('B'),
-                      alignRight: true,
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -930,6 +1315,7 @@ class _MatchScreenState extends State<MatchScreen> {
     );
   }
 }
+
 
 class HalftimeScreen extends StatefulWidget {
   final String teamA;
@@ -955,7 +1341,8 @@ class HalftimeScreen extends StatefulWidget {
   });
 
   @override
-  State<HalftimeScreen> createState() => _HalftimeScreenState(); }
+  State<HalftimeScreen> createState() => _HalftimeScreenState();
+}
 
 class _HalftimeScreenState extends State<HalftimeScreen> {
   Timer? _timer;
@@ -1225,12 +1612,13 @@ class _HalftimeScreenState extends State<HalftimeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: _eventListColumn(items: _eventsA, align: TextAlign.left),
+                    child: _eventListColumn(
+                        items: _eventsA, align: TextAlign.left),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child:
-                        _eventListColumn(items: _eventsB, align: TextAlign.right),
+                    child: _eventListColumn(
+                        items: _eventsB, align: TextAlign.right),
                   ),
                 ],
               ),
@@ -1449,8 +1837,7 @@ class ResultScreen extends StatelessWidget {
     final fullEvents = events;
     final firstHalfEvents = _eventsOfPhases(['前半']);
     final secondHalfEvents = _eventsOfPhases(['後半']);
-    final extraEvents =
-        _eventsOfPhases(['延長前半', '延長後半']); // 表示用
+    final extraEvents = _eventsOfPhases(['延長前半', '延長後半']); // 表示用
     final hasExtra = extraEvents.isNotEmpty ||
         extraFirstHalfElapsedSec > 0 ||
         extraSecondHalfElapsedSec > 0;
