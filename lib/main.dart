@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:typed_data'
 import 'dart:html' as html;
 import 'package:flutter/material.dart';
 
@@ -1812,6 +1813,7 @@ class ResultScreen extends StatelessWidget {
     return (a: a, b: b);
   }
 
+  // ★ここを修正：UTF-8 + BOM で書き出し（iPhoneの文字化け対策）
   void _exportText({
     required String title,
     required String fileName,
@@ -1832,9 +1834,9 @@ class ResultScreen extends StatelessWidget {
       buffer.writeln('得点なし');
     } else {
       for (final e in evs) {
-        final time = _fmt(e['tGlobal'] as int);
+        final time = _fmt((e['tGlobal'] as num).toInt());
         final teamName = e['team'] == 'A' ? teamA : teamB;
-        final no = e['playerNo'] as int;
+        final no = (e['playerNo'] as num).toInt();
         final name = (e['playerName'] as String?) ?? '';
         final who = name.isEmpty ? '#$no' : '#$no $name';
         buffer.writeln('$time  $teamName  $who');
@@ -1842,7 +1844,17 @@ class ResultScreen extends StatelessWidget {
     }
 
     final text = buffer.toString();
-    final blob = html.Blob([text], 'text/plain');
+
+    // UTF-8 BOM + UTF-8 bytes
+    final bom = <int>[0xEF, 0xBB, 0xBF];
+    final bytes = utf8.encode(text);
+    final data = Uint8List.fromList([...bom, ...bytes]);
+
+    final blob = html.Blob(
+      [data],
+      'text/plain;charset=utf-8',
+    );
+
     final url = html.Url.createObjectUrlFromBlob(blob);
     html.AnchorElement(href: url)
       ..setAttribute('download', fileName)
@@ -1912,9 +1924,9 @@ class ResultScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: aEvents.map((e) {
-                      final time = _fmt(e['tGlobal'] as int);
-                      final phase = (e['phase'] ?? '').toString().trim(); // 前半/後半
-                      final no = e['playerNo'] as int;
+                      final time = _fmt((e['tGlobal'] as num).toInt());
+                      final phase = (e['phase'] ?? '').toString().trim();
+                      final no = (e['playerNo'] as num).toInt();
                       final name = (e['playerName'] as String?) ?? '';
                       final who = name.isEmpty ? '#$no' : '#$no $name';
                       return Padding(
@@ -1930,9 +1942,9 @@ class ResultScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: bEvents.map((e) {
-                      final time = _fmt(e['tGlobal'] as int);
-                      final phase = (e['phase'] ?? '').toString().trim(); // 前半/後半
-                      final no = e['playerNo'] as int;
+                      final time = _fmt((e['tGlobal'] as num).toInt());
+                      final phase = (e['phase'] ?? '').toString().trim();
+                      final no = (e['playerNo'] as num).toInt();
                       final name = (e['playerName'] as String?) ?? '';
                       final who = name.isEmpty ? '#$no' : '#$no $name';
                       return Padding(
@@ -1972,7 +1984,6 @@ class ResultScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ★デグレ修正：Setupへ戻る明示ボタン
           SizedBox(
             height: 44,
             width: double.infinity,
@@ -1982,7 +1993,6 @@ class ResultScreen extends StatelessWidget {
               label: const Text('Setupへ戻る'),
             ),
           ),
-
           const SizedBox(height: 8),
 
           _resultBlock(
