@@ -845,7 +845,7 @@ class _MatchScreenState extends State<MatchScreen> {
   int _scoreA = 0;
   int _scoreB = 0;
 
-  // 「現在フェーズ」の経過秒（フェーズ開始で必ず0から）
+  // 「現在フェーズ」の経過秒
   int _elapsedInPhaseSec = 0;
 
   // 確定した各フェーズの経過
@@ -867,6 +867,17 @@ class _MatchScreenState extends State<MatchScreen> {
   // rosters from My Teams (optional)
   List<TeamMember> _rosterA = [];
   List<TeamMember> _rosterB = [];
+
+  // ★追加：各フェーズが「一度でも開始されたか」
+  final Map<MatchPhase, bool> _phaseStartedOnce = {
+    MatchPhase.firstHalf: false,
+    MatchPhase.halftime: false,
+    MatchPhase.secondHalf: false,
+    MatchPhase.extraFirstHalf: false,
+    MatchPhase.extraSecondHalf: false,
+    MatchPhase.penaltyShootout: false,
+    MatchPhase.finished: true,
+  };
 
   @override
   void initState() {
@@ -951,27 +962,43 @@ class _MatchScreenState extends State<MatchScreen> {
     if (_secondHalfElapsedSec != null) sum += _secondHalfElapsedSec!;
     if (_extraFirstHalfElapsedSec != null) sum += _extraFirstHalfElapsedSec!;
     if (_extraSecondHalfElapsedSec != null) sum += _extraSecondHalfElapsedSec!;
-    // PK・Finished以外は「現在フェーズ」を加算
     if (_phase != MatchPhase.penaltyShootout && _phase != MatchPhase.finished) {
       sum += _elapsedInPhaseSec;
     }
     return sum;
   }
 
-  // ★重要：フェーズ開始＝タイマー開始（0から）
-  void _beginPhase(MatchPhase phase) {
+  void _startTicking() {
     _timer?.cancel();
-    setState(() {
-      _phase = phase;
-      _elapsedInPhaseSec = 0;
-      _running = true;
-    });
-
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       setState(() {
         _elapsedInPhaseSec++;
       });
     });
+  }
+
+  // ★重要：フェーズ開始/再開
+  // - 初回開始：0から
+  // - Stop後の再開：続きから
+  void _startOrResumePhase(MatchPhase phase) {
+    if (_running) return;
+    if (phase == MatchPhase.finished) return;
+
+    final startedOnce = _phaseStartedOnce[phase] ?? false;
+
+    setState(() {
+      _phase = phase;
+
+      // 初回だけ 0 に初期化
+      if (!startedOnce) {
+        _elapsedInPhaseSec = 0;
+        _phaseStartedOnce[phase] = true;
+      }
+
+      _running = true;
+    });
+
+    _startTicking();
   }
 
   // Stopボタン（必要時のみ）
@@ -1001,6 +1028,14 @@ class _MatchScreenState extends State<MatchScreen> {
       _pkB = 0;
 
       _events.clear();
+
+      _phaseStartedOnce[MatchPhase.firstHalf] = false;
+      _phaseStartedOnce[MatchPhase.halftime] = false;
+      _phaseStartedOnce[MatchPhase.secondHalf] = false;
+      _phaseStartedOnce[MatchPhase.extraFirstHalf] = false;
+      _phaseStartedOnce[MatchPhase.extraSecondHalf] = false;
+      _phaseStartedOnce[MatchPhase.penaltyShootout] = false;
+      _phaseStartedOnce[MatchPhase.finished] = true;
     });
   }
 
@@ -1129,8 +1164,6 @@ class _MatchScreenState extends State<MatchScreen> {
     });
   }
 
-  // ===== フェーズ終了処理 =====
-
   Future<void> _endFirstHalf() async {
     _stopTimer();
     setState(() {
@@ -1138,10 +1171,10 @@ class _MatchScreenState extends State<MatchScreen> {
     });
 
     if (!widget.hasHalftime) {
-      // ハーフタイム無し → 後半開始ボタン待ち
       setState(() {
         _phase = MatchPhase.secondHalf;
         _elapsedInPhaseSec = 0;
+        _phaseStartedOnce[MatchPhase.secondHalf] = false;
       });
       return;
     }
@@ -1177,7 +1210,8 @@ class _MatchScreenState extends State<MatchScreen> {
       }
 
       _phase = MatchPhase.secondHalf;
-      _elapsedInPhaseSec = 0; // 後半開始で0から
+      _elapsedInPhaseSec = 0;
+      _phaseStartedOnce[MatchPhase.secondHalf] = false;
     });
   }
 
@@ -1194,6 +1228,7 @@ class _MatchScreenState extends State<MatchScreen> {
               setState(() {
                 _phase = MatchPhase.extraFirstHalf;
                 _elapsedInPhaseSec = 0;
+                _phaseStartedOnce[MatchPhase.extraFirstHalf] = false;
               });
             },
             child: const Text('Extra'),
@@ -1204,6 +1239,7 @@ class _MatchScreenState extends State<MatchScreen> {
               setState(() {
                 _phase = MatchPhase.penaltyShootout;
                 _elapsedInPhaseSec = 0;
+                _phaseStartedOnce[MatchPhase.penaltyShootout] = false;
               });
             },
             child: const Text('PK'),
@@ -1234,6 +1270,7 @@ class _MatchScreenState extends State<MatchScreen> {
       _extraFirstHalfElapsedSec = _elapsedInPhaseSec;
       _phase = MatchPhase.extraSecondHalf;
       _elapsedInPhaseSec = 0;
+      _phaseStartedOnce[MatchPhase.extraSecondHalf] = false;
     });
   }
 
@@ -1247,6 +1284,7 @@ class _MatchScreenState extends State<MatchScreen> {
       setState(() {
         _phase = MatchPhase.penaltyShootout;
         _elapsedInPhaseSec = 0;
+        _phaseStartedOnce[MatchPhase.penaltyShootout] = false;
       });
       return;
     }
@@ -1268,7 +1306,6 @@ class _MatchScreenState extends State<MatchScreen> {
     _finishMatch();
   }
 
-  // ===== 得点履歴 =====
   Widget _inMatchGoalHistoryCard() {
     final aEvents = _events.where((e) => (e['team'] ?? '') == 'A').toList();
     final bEvents = _events.where((e) => (e['team'] ?? '') == 'B').toList();
@@ -1365,7 +1402,11 @@ class _MatchScreenState extends State<MatchScreen> {
     );
   }
 
-  // ===== UI =====
+  String _phaseStartLabel(MatchPhase phase, String firstLabel) {
+    final startedOnce = _phaseStartedOnce[phase] ?? false;
+    return startedOnce ? '再開' : firstLabel;
+  }
+
   @override
   Widget build(BuildContext context) {
     final phaseTimeText = _phasePlannedSec > 0
@@ -1393,10 +1434,7 @@ class _MatchScreenState extends State<MatchScreen> {
                 children: [
                   Text(_phaseLabel, style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 8),
-                  Text(
-                    phaseTimeText,
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
+                  Text(phaseTimeText, style: Theme.of(context).textTheme.headlineMedium),
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -1404,8 +1442,7 @@ class _MatchScreenState extends State<MatchScreen> {
                         child: Column(
                           children: [
                             Text(widget.teamA),
-                            Text('$_scoreA',
-                                style: Theme.of(context).textTheme.displaySmall),
+                            Text('$_scoreA', style: Theme.of(context).textTheme.displaySmall),
                             const SizedBox(height: 8),
                             FilledButton(
                               onPressed: () => _goal('A'),
@@ -1418,8 +1455,7 @@ class _MatchScreenState extends State<MatchScreen> {
                         child: Column(
                           children: [
                             Text(widget.teamB),
-                            Text('$_scoreB',
-                                style: Theme.of(context).textTheme.displaySmall),
+                            Text('$_scoreB', style: Theme.of(context).textTheme.displaySmall),
                             const SizedBox(height: 8),
                             FilledButton(
                               onPressed: () => _goal('B'),
@@ -1432,7 +1468,7 @@ class _MatchScreenState extends State<MatchScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Stopボタンだけ（Startは廃止）
+                  // Stop（汎用）だけ残す
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -1449,20 +1485,20 @@ class _MatchScreenState extends State<MatchScreen> {
 
                   const SizedBox(height: 16),
 
-                  // フェーズ開始ボタン：ここで必ずタイマー開始（0から）
+                  // フェーズ開始（初回=0、以後=再開）
                   if (_phase == MatchPhase.firstHalf) ...[
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: _running ? null : () => _beginPhase(MatchPhase.firstHalf),
-                        child: const Text('前半開始'),
+                        onPressed: _running ? null : () => _startOrResumePhase(MatchPhase.firstHalf),
+                        child: Text(_phaseStartLabel(MatchPhase.firstHalf, '前半開始')),
                       ),
                     ),
                     const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: _running ? null : _endFirstHalf,
+                        onPressed: _running ? _endFirstHalf : null,
                         child: const Text('前半終了'),
                       ),
                     ),
@@ -1472,15 +1508,15 @@ class _MatchScreenState extends State<MatchScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: _running ? null : () => _beginPhase(MatchPhase.secondHalf),
-                        child: const Text('後半開始'),
+                        onPressed: _running ? null : () => _startOrResumePhase(MatchPhase.secondHalf),
+                        child: Text(_phaseStartLabel(MatchPhase.secondHalf, '後半開始')),
                       ),
                     ),
                     const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: _running ? null : _endSecondHalf,
+                        onPressed: _running ? _endSecondHalf : null,
                         child: const Text('後半終了'),
                       ),
                     ),
@@ -1490,15 +1526,15 @@ class _MatchScreenState extends State<MatchScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: _running ? null : () => _beginPhase(MatchPhase.extraFirstHalf),
-                        child: const Text('延長前半開始'),
+                        onPressed: _running ? null : () => _startOrResumePhase(MatchPhase.extraFirstHalf),
+                        child: Text(_phaseStartLabel(MatchPhase.extraFirstHalf, '延長前半開始')),
                       ),
                     ),
                     const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: _running ? null : _endExtraFirstHalf,
+                        onPressed: _running ? _endExtraFirstHalf : null,
                         child: const Text('延長前半終了'),
                       ),
                     ),
@@ -1508,15 +1544,15 @@ class _MatchScreenState extends State<MatchScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: _running ? null : () => _beginPhase(MatchPhase.extraSecondHalf),
-                        child: const Text('延長後半開始'),
+                        onPressed: _running ? null : () => _startOrResumePhase(MatchPhase.extraSecondHalf),
+                        child: Text(_phaseStartLabel(MatchPhase.extraSecondHalf, '延長後半開始')),
                       ),
                     ),
                     const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: _running ? null : _endExtraSecondHalf,
+                        onPressed: _running ? _endExtraSecondHalf : null,
                         child: const Text('延長後半終了'),
                       ),
                     ),
