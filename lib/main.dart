@@ -1306,51 +1306,54 @@ class _MatchScreenState extends State<MatchScreen> {
     _finishMatch();
   }
 
-  Widget _inMatchGoalHistoryCard() {
-    final aEvents = _events.where((e) => (e['team'] ?? '') == 'A').toList();
-    final bEvents = _events.where((e) => (e['team'] ?? '') == 'B').toList();
+Widget _inMatchGoalHistoryCard() {
+  final aEvents = _events.where((e) => (e['team'] ?? '') == 'A').toList();
+  final bEvents = _events.where((e) => (e['team'] ?? '') == 'B').toList();
 
-    Widget col(List<Map<String, dynamic>> items, TextAlign align) {
-      if (items.isEmpty) return Text('—', textAlign: align);
+  Widget col(List<Map<String, dynamic>> items, TextAlign align) {
+    if (items.isEmpty) return Text('—', textAlign: align);
 
-      return Column(
-        crossAxisAlignment:
-            align == TextAlign.left ? CrossAxisAlignment.start : CrossAxisAlignment.end,
-        children: items.map((e) {
-          final t = (e['tGlobal'] is num) ? (e['tGlobal'] as num).toInt() : 0;
-          final phase = (e['phase'] ?? '').toString().trim();
-          final no = (e['playerNo'] is num) ? (e['playerNo'] as num).toInt() : 0;
-          final name = (e['playerName'] ?? '').toString().trim();
-          final scorer = name.isEmpty ? '#$no' : '#$no $name';
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Text('${_fmt(t)}  $phase  $scorer', textAlign: align),
-          );
-        }).toList(),
-      );
-    }
+    return Column(
+      crossAxisAlignment:
+          align == TextAlign.left ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+      children: items.map((e) {
+        // ★ここがポイント：tGlobal ではなく tPhase を表示
+        final t = (e['tPhase'] is num) ? (e['tPhase'] as num).toInt() : 0;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('得点履歴', style: TextStyle(fontSize: 16)),
-            const SizedBox(height: 8),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: col(aEvents, TextAlign.left)),
-                const SizedBox(width: 12),
-                Expanded(child: col(bEvents, TextAlign.right)),
-              ],
-            ),
-          ],
-        ),
-      ),
+        final phase = (e['phase'] ?? '').toString().trim();
+        final no = (e['playerNo'] is num) ? (e['playerNo'] as num).toInt() : 0;
+        final name = (e['playerName'] ?? '').toString().trim();
+        final scorer = name.isEmpty ? '#$no' : '#$no $name';
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Text('${_fmt(t)}  $phase  $scorer', textAlign: align),
+        );
+      }).toList(),
     );
   }
+
+  return Card(
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('得点履歴', style: TextStyle(fontSize: 16)),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: col(aEvents, TextAlign.left)),
+              const SizedBox(width: 12),
+              Expanded(child: col(bEvents, TextAlign.right)),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
   void _finishMatch() {
     _stopTimer();
