@@ -5,7 +5,6 @@ import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'dart:js_util' as js_util;
 
-
 // ===============================
 // My Teams (localStorage)
 // ===============================
@@ -128,7 +127,6 @@ void saveMyTeamsBestEffort() {
     // Ignore any errors (best-effort)
   }
 }
-
 
 Map<String, dynamic>? latestMatchResult;
 
@@ -535,10 +533,10 @@ class _MyTeamsScreenState extends State<MyTeamsScreen> {
 
     Navigator.of(context)
         .push(
-          MaterialPageRoute(
-            builder: (_) => TeamEditorScreen(team: newTeam, isNew: true),
-          ),
-        )
+      MaterialPageRoute(
+        builder: (_) => TeamEditorScreen(team: newTeam, isNew: true),
+      ),
+    )
         .then((_) {
       setState(() {});
     });
@@ -547,10 +545,10 @@ class _MyTeamsScreenState extends State<MyTeamsScreen> {
   void _editTeam(MyTeam team) {
     Navigator.of(context)
         .push(
-          MaterialPageRoute(
-            builder: (_) => TeamEditorScreen(team: team, isNew: false),
-          ),
-        )
+      MaterialPageRoute(
+        builder: (_) => TeamEditorScreen(team: team, isNew: false),
+      ),
+    )
         .then((_) {
       setState(() {});
     });
@@ -595,7 +593,8 @@ class _MyTeamsScreenState extends State<MyTeamsScreen> {
           }
 
           final team = myTeamsCache[index];
-          final displayName = team.name.trim().isEmpty ? '(Unnamed team)' : team.name.trim();
+          final displayName =
+              team.name.trim().isEmpty ? '(Unnamed team)' : team.name.trim();
           return Card(
             child: ListTile(
               title: Text(displayName),
@@ -748,7 +747,6 @@ class _TeamEditorScreenState extends State<TeamEditorScreen> {
             ),
           ),
           const SizedBox(height: 16),
-
           Row(
             children: [
               const Expanded(child: Text('Members (No. / Name)')),
@@ -760,7 +758,6 @@ class _TeamEditorScreenState extends State<TeamEditorScreen> {
             ],
           ),
           const SizedBox(height: 8),
-
           ...List.generate(_numberControllers.length, (i) {
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
@@ -1206,7 +1203,9 @@ class _MatchScreenState extends State<MatchScreen> {
       if (ev is List) {
         _events
           ..clear()
-          ..addAll(ev.whereType<Map>().map((e) => e.map((k, v) => MapEntry('$k', v))));
+          ..addAll(ev
+              .whereType<Map>()
+              .map((e) => e.map((k, v) => MapEntry('$k', v))));
       }
 
       _phase = MatchPhase.secondHalf;
@@ -1306,54 +1305,56 @@ class _MatchScreenState extends State<MatchScreen> {
     _finishMatch();
   }
 
-Widget _inMatchGoalHistoryCard() {
-  final aEvents = _events.where((e) => (e['team'] ?? '') == 'A').toList();
-  final bEvents = _events.where((e) => (e['team'] ?? '') == 'B').toList();
+  Widget _inMatchGoalHistoryCard() {
+    final aEvents = _events.where((e) => (e['team'] ?? '') == 'A').toList();
+    final bEvents = _events.where((e) => (e['team'] ?? '') == 'B').toList();
 
-  Widget col(List<Map<String, dynamic>> items, TextAlign align) {
-    if (items.isEmpty) return Text('—', textAlign: align);
+    Widget col(List<Map<String, dynamic>> items, TextAlign align) {
+      if (items.isEmpty) return Text('—', textAlign: align);
 
-    return Column(
-      crossAxisAlignment:
-          align == TextAlign.left ? CrossAxisAlignment.start : CrossAxisAlignment.end,
-      children: items.map((e) {
-        // ★ここがポイント：tGlobal ではなく tPhase を表示
-        final t = (e['tPhase'] is num) ? (e['tPhase'] as num).toInt() : 0;
+      return Column(
+        crossAxisAlignment: align == TextAlign.left
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.end,
+        children: items.map((e) {
+          // ★ここがポイント：tGlobal ではなく tPhase を表示
+          final t = (e['tPhase'] is num) ? (e['tPhase'] as num).toInt() : 0;
 
-        final phase = (e['phase'] ?? '').toString().trim();
-        final no = (e['playerNo'] is num) ? (e['playerNo'] as num).toInt() : 0;
-        final name = (e['playerName'] ?? '').toString().trim();
-        final scorer = name.isEmpty ? '#$no' : '#$no $name';
+          final phase = (e['phase'] ?? '').toString().trim();
+          final no =
+              (e['playerNo'] is num) ? (e['playerNo'] as num).toInt() : 0;
+          final name = (e['playerName'] ?? '').toString().trim();
+          final scorer = name.isEmpty ? '#$no' : '#$no $name';
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: Text('${_fmt(t)}  $phase  $scorer', textAlign: align),
-        );
-      }).toList(),
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Text('${_fmt(t)}  $phase  $scorer', textAlign: align),
+          );
+        }).toList(),
+      );
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('得点履歴', style: TextStyle(fontSize: 16)),
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: col(aEvents, TextAlign.left)),
+                const SizedBox(width: 12),
+                Expanded(child: col(bEvents, TextAlign.right)),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
-
-  return Card(
-    child: Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('得点履歴', style: TextStyle(fontSize: 16)),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: col(aEvents, TextAlign.left)),
-              const SizedBox(width: 12),
-              Expanded(child: col(bEvents, TextAlign.right)),
-            ],
-          ),
-        ],
-      ),
-    ),
-  );
-}
 
   void _finishMatch() {
     _stopTimer();
@@ -1435,9 +1436,11 @@ Widget _inMatchGoalHistoryCard() {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  Text(_phaseLabel, style: Theme.of(context).textTheme.titleLarge),
+                  Text(_phaseLabel,
+                      style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 8),
-                  Text(phaseTimeText, style: Theme.of(context).textTheme.headlineMedium),
+                  Text(phaseTimeText,
+                      style: Theme.of(context).textTheme.headlineMedium),
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -1445,7 +1448,9 @@ Widget _inMatchGoalHistoryCard() {
                         child: Column(
                           children: [
                             Text(widget.teamA),
-                            Text('$_scoreA', style: Theme.of(context).textTheme.displaySmall),
+                            Text('$_scoreA',
+                                style:
+                                    Theme.of(context).textTheme.displaySmall),
                             const SizedBox(height: 8),
                             FilledButton(
                               onPressed: () => _goal('A'),
@@ -1458,7 +1463,9 @@ Widget _inMatchGoalHistoryCard() {
                         child: Column(
                           children: [
                             Text(widget.teamB),
-                            Text('$_scoreB', style: Theme.of(context).textTheme.displaySmall),
+                            Text('$_scoreB',
+                                style:
+                                    Theme.of(context).textTheme.displaySmall),
                             const SizedBox(height: 8),
                             FilledButton(
                               onPressed: () => _goal('B'),
@@ -1493,8 +1500,11 @@ Widget _inMatchGoalHistoryCard() {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: _running ? null : () => _startOrResumePhase(MatchPhase.firstHalf),
-                        child: Text(_phaseStartLabel(MatchPhase.firstHalf, '前半開始')),
+                        onPressed: _running
+                            ? null
+                            : () => _startOrResumePhase(MatchPhase.firstHalf),
+                        child: Text(
+                            _phaseStartLabel(MatchPhase.firstHalf, '前半開始')),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -1511,8 +1521,11 @@ Widget _inMatchGoalHistoryCard() {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: _running ? null : () => _startOrResumePhase(MatchPhase.secondHalf),
-                        child: Text(_phaseStartLabel(MatchPhase.secondHalf, '後半開始')),
+                        onPressed: _running
+                            ? null
+                            : () => _startOrResumePhase(MatchPhase.secondHalf),
+                        child: Text(
+                            _phaseStartLabel(MatchPhase.secondHalf, '後半開始')),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -1529,8 +1542,12 @@ Widget _inMatchGoalHistoryCard() {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: _running ? null : () => _startOrResumePhase(MatchPhase.extraFirstHalf),
-                        child: Text(_phaseStartLabel(MatchPhase.extraFirstHalf, '延長前半開始')),
+                        onPressed: _running
+                            ? null
+                            : () =>
+                                _startOrResumePhase(MatchPhase.extraFirstHalf),
+                        child: Text(_phaseStartLabel(
+                            MatchPhase.extraFirstHalf, '延長前半開始')),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -1547,8 +1564,12 @@ Widget _inMatchGoalHistoryCard() {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: _running ? null : () => _startOrResumePhase(MatchPhase.extraSecondHalf),
-                        child: Text(_phaseStartLabel(MatchPhase.extraSecondHalf, '延長後半開始')),
+                        onPressed: _running
+                            ? null
+                            : () =>
+                                _startOrResumePhase(MatchPhase.extraSecondHalf),
+                        child: Text(_phaseStartLabel(
+                            MatchPhase.extraSecondHalf, '延長後半開始')),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -1602,7 +1623,6 @@ Widget _inMatchGoalHistoryCard() {
     );
   }
 }
-
 
 class HalftimeScreen extends StatefulWidget {
   final String teamA;
@@ -1979,80 +1999,83 @@ class ResultScreen extends StatelessWidget {
     return (a: a, b: b);
   }
 
-void _exportText({
-  required String title,
-  required String fileName,
-  required int elapsedSec,
-  required List<Map<String, dynamic>> evs,
-}) async {
-  // ★書き出し内容は変更しない（要望どおり）
-  final buffer = StringBuffer();
-  final score = _scoreOf(evs);
+  void _exportText({
+    required String title,
+    required String fileName,
+    required int elapsedSec,
+    required List<Map<String, dynamic>> evs,
+  }) async {
+    // ★書き出し内容は変更しない（要望どおり）
+    final buffer = StringBuffer();
+    final score = _scoreOf(evs);
 
-  buffer.writeln(title);
-  buffer.writeln('$teamA  ${score.a} - ${score.b}  $teamB');
-  buffer.writeln('経過：${_fmt(elapsedSec)}');
-  buffer.writeln('');
-  buffer.writeln('得点詳細（時刻順）');
+    buffer.writeln(title);
+    buffer.writeln('$teamA  ${score.a} - ${score.b}  $teamB');
+    buffer.writeln('経過：${_fmt(elapsedSec)}');
+    buffer.writeln('');
+    buffer.writeln('得点詳細（時刻順）');
 
-  if (evs.isEmpty) {
-    buffer.writeln('得点なし');
-  } else {
-    for (final e in evs) {
-      final time = _fmt((e['tGlobal'] as num).toInt());
-      final teamName = e['team'] == 'A' ? teamA : teamB;
-      final no = (e['playerNo'] as num).toInt();
-      final name = (e['playerName'] as String?) ?? '';
-      final who = name.isEmpty ? '#$no' : '#$no $name';
-      buffer.writeln('$time  $teamName  $who');
+    if (evs.isEmpty) {
+      buffer.writeln('得点なし');
+    } else {
+      for (final e in evs) {
+        final time = _fmt((e['tGlobal'] as num).toInt());
+        final teamName = e['team'] == 'A' ? teamA : teamB;
+        final no = (e['playerNo'] as num).toInt();
+        final name = (e['playerName'] as String?) ?? '';
+        final who = name.isEmpty ? '#$no' : '#$no $name';
+        buffer.writeln('$time  $teamName  $who');
+      }
     }
-  }
 
-  final text = buffer.toString();
+    final text = buffer.toString();
 
-  // UTF-8 BOM + bytes
-  final bom = <int>[0xEF, 0xBB, 0xBF];
-  final bytes = utf8.encode(text);
-  final data = Uint8List.fromList([...bom, ...bytes]);
+    // UTF-8 BOM + bytes
+    final bom = <int>[0xEF, 0xBB, 0xBF];
+    final bytes = utf8.encode(text);
+    final data = Uint8List.fromList([...bom, ...bytes]);
 
-  // 共有用 File（Web Share API）
-  final file = html.File([data], fileName, {'type': 'text/plain;charset=utf-8'});
+    // 共有用 File（Web Share API）
+    final file =
+        html.File([data], fileName, {'type': 'text/plain;charset=utf-8'});
 
-  // Web Share API（対応端末は共有シートが出る）
-  try {
-    final nav = html.window.navigator;
+    // Web Share API（対応端末は共有シートが出る）
+    try {
+      final nav = html.window.navigator;
 
-    final canShareFiles = (js_util.getProperty(nav, 'canShare') != null) &&
-        (js_util.callMethod(nav, 'canShare', [
-          js_util.jsify({'files': [file]})
-        ]) as bool);
+      final canShareFiles = (js_util.getProperty(nav, 'canShare') != null) &&
+          (js_util.callMethod(nav, 'canShare', [
+            js_util.jsify({
+              'files': [file]
+            })
+          ]) as bool);
 
-    final hasShare = js_util.getProperty(nav, 'share') != null;
+      final hasShare = js_util.getProperty(nav, 'share') != null;
 
-    if (hasShare && canShareFiles) {
-      await js_util.promiseToFuture(
-        js_util.callMethod(nav, 'share', [
-          js_util.jsify({
-            'title': 'SimpleScore',
-            'text': '試合結果を共有します',
-            'files': [file],
-          })
-        ]),
-      );
-      return; // 共有できたらここで終了
+      if (hasShare && canShareFiles) {
+        await js_util.promiseToFuture(
+          js_util.callMethod(nav, 'share', [
+            js_util.jsify({
+              'title': 'SimpleScore',
+              'text': '試合結果を共有します',
+              'files': [file],
+            })
+          ]),
+        );
+        return; // 共有できたらここで終了
+      }
+    } catch (_) {
+      // 共有失敗 → ダウンロードへフォールバック
     }
-  } catch (_) {
-    // 共有失敗 → ダウンロードへフォールバック
-  }
 
-  // フォールバック：従来どおりダウンロード
-  final blob = html.Blob([data], 'text/plain;charset=utf-8');
-  final url = html.Url.createObjectUrlFromBlob(blob);
-  html.AnchorElement(href: url)
-    ..setAttribute('download', fileName)
-    ..click();
-  html.Url.revokeObjectUrl(url);
-}
+    // フォールバック：従来どおりダウンロード
+    final blob = html.Blob([data], 'text/plain;charset=utf-8');
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    html.AnchorElement(href: url)
+      ..setAttribute('download', fileName)
+      ..click();
+    html.Url.revokeObjectUrl(url);
+  }
 
   Widget _resultBlock({
     required String title,
@@ -2108,49 +2131,63 @@ void _exportText({
               ),
             ],
             const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Team A
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: aEvents.map((e) {
-                      final time = _fmt((e['tGlobal'] as num).toInt());
-                      final phase = (e['phase'] ?? '').toString().trim();
-                      final no = (e['playerNo'] as num).toInt();
-                      final name = (e['playerName'] as String?) ?? '';
-                      final who = name.isEmpty ? '#$no' : '#$no $name';
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: Text('$time  $phase  $who'),
-                      );
-                    }).toList(),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // Team B
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: bEvents.map((e) {
-                      final time = _fmt((e['tGlobal'] as num).toInt());
-                      final phase = (e['phase'] ?? '').toString().trim();
-                      final no = (e['playerNo'] as num).toInt();
-                      final name = (e['playerName'] as String?) ?? '';
-                      final who = name.isEmpty ? '#$no' : '#$no $name';
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: Text(
-                          '$time  $phase  $who',
-                          textAlign: TextAlign.right,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ],
+           Row(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    // Team A
+    Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: aEvents.map((e) {
+          final usePhaseTime = title != 'Result（試合全体）';
+          final timeSec = usePhaseTime
+              ? ((e['tPhase'] as num?)?.toInt() ?? 0)
+              : ((e['tGlobal'] as num?)?.toInt() ?? 0);
+          final time = _fmt(timeSec);
+
+          final phase = (e['phase'] ?? '').toString().trim();
+          final no = (e['playerNo'] as num).toInt();
+          final name = (e['playerName'] as String?) ?? '';
+          final who = name.isEmpty ? '#$no' : '#$no $name';
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Text('$time  $phase  $who'),
+          );
+        }).toList(),
+      ),
+    ),
+
+    const SizedBox(width: 16),
+
+    // Team B（★ここも同じロジックにする）
+    Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: bEvents.map((e) {
+          final usePhaseTime = title != 'Result（試合全体）';
+          final timeSec = usePhaseTime
+              ? ((e['tPhase'] as num?)?.toInt() ?? 0)
+              : ((e['tGlobal'] as num?)?.toInt() ?? 0);
+          final time = _fmt(timeSec);
+
+          final phase = (e['phase'] ?? '').toString().trim();
+          final no = (e['playerNo'] as num).toInt();
+          final name = (e['playerName'] as String?) ?? '';
+          final who = name.isEmpty ? '#$no' : '#$no $name';
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Text(
+              '$time  $phase  $who',
+              textAlign: TextAlign.right,
             ),
+          );
+        }).toList(),
+      ),
+    ),
+  ],
+),
           ],
         ),
       ),
@@ -2186,7 +2223,6 @@ void _exportText({
             ),
           ),
           const SizedBox(height: 8),
-
           _resultBlock(
             title: 'Result（試合全体）',
             elapsedSec: totalElapsedSec,
@@ -2199,9 +2235,7 @@ void _exportText({
               evs: fullEvents,
             ),
           ),
-
           const Divider(height: 24),
-
           _resultBlock(
             title: 'Result（前半）',
             elapsedSec: firstHalfElapsedSec,
@@ -2226,7 +2260,6 @@ void _exportText({
               evs: secondHalfEvents,
             ),
           ),
-
           if (hasExtra) ...[
             const Divider(height: 24),
             _resultBlock(
@@ -2242,7 +2275,6 @@ void _exportText({
               ),
             ),
           ],
-
           if (hasPK) ...[
             const Divider(height: 24),
             Card(
