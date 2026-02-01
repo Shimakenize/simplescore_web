@@ -964,6 +964,26 @@ class _MatchScreenState extends State<MatchScreen> {
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
+  bool get _canUsePhaseTimer {
+    return _phase == MatchPhase.firstHalf ||
+        _phase == MatchPhase.secondHalf ||
+        _phase == MatchPhase.extraFirstHalf ||
+        _phase == MatchPhase.extraSecondHalf;
+  }
+
+  String _phaseStartLabel() {
+    final base = switch (_phase) {
+      MatchPhase.firstHalf => '前半',
+      MatchPhase.secondHalf => '後半',
+      MatchPhase.extraFirstHalf => '延長前半',
+      MatchPhase.extraSecondHalf => '延長後半',
+      _ => '',
+    };
+    if (base.isEmpty) return '開始';
+    if (_elapsedInPhaseSec == 0) return '${base}開始';
+    return '${base}再開';
+  }
+
   String _eventPhaseForLog() {
     // HT中に得点入力するケースを許す → HT中は前半として記録
     switch (_phase) {
@@ -1124,6 +1144,7 @@ class _MatchScreenState extends State<MatchScreen> {
       _phase = MatchPhase.secondHalf;
       _elapsedInPhaseSec = 0;
     });
+    _startTimer();
   }
 
   void _endSecondHalf() {
@@ -1379,10 +1400,11 @@ class _MatchScreenState extends State<MatchScreen> {
                         onPressed: _undoLastGoal,
                         child: const Text('Undo'),
                       ),
-                      FilledButton(
-                        onPressed: _running ? _stopTimer : _startTimer,
-                        child: Text(_running ? 'Stop' : 'Start'),
-                      ),
+                      if (_canUsePhaseTimer)
+                        FilledButton(
+                          onPressed: _running ? _stopTimer : _startTimer,
+                          child: Text(_running ? '一時停止' : _phaseStartLabel()),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 16),
