@@ -1228,8 +1228,14 @@ class _MatchScreenState extends State<MatchScreen> {
         crossAxisAlignment:
             align == TextAlign.left ? CrossAxisAlignment.start : CrossAxisAlignment.end,
         children: items.map((e) {
-          final t = (e['tGlobal'] is num) ? (e['tGlobal'] as num).toInt() : 0;
-          final phase = (e['phase'] ?? '').toString().trim(); // 前半/後半
+          final phase = (e['phase'] ?? '').toString().trim(); // 前半/後半/延長
+          final tGlobal =
+              (e['tGlobal'] is num) ? (e['tGlobal'] as num).toInt() : 0;
+          final tPhase =
+              (e['tPhase'] is num) ? (e['tPhase'] as num).toInt() : tGlobal;
+          final t = (phase == '後半' || phase == '延長前半' || phase == '延長後半')
+              ? tPhase
+              : tGlobal;
           final no = (e['playerNo'] is num) ? (e['playerNo'] as num).toInt() : 0;
           final name = (e['playerName'] ?? '').toString().trim();
           final scorer = name.isEmpty ? '#$no' : '#$no $name';
@@ -1817,6 +1823,8 @@ class ResultScreen extends StatelessWidget {
     required String fileName,
     required int elapsedSec,
     required List<Map<String, dynamic>> evs,
+    bool usePhaseRelativeTime = false,
+    String? elapsedTextOverride,
   }) {
     // ★書き出し内容は変更しない（要望どおり）
     final buffer = StringBuffer();
@@ -1824,7 +1832,8 @@ class ResultScreen extends StatelessWidget {
 
     buffer.writeln(title);
     buffer.writeln('$teamA  ${score.a} - ${score.b}  $teamB');
-    buffer.writeln('経過：${_fmt(elapsedSec)}');
+    final elapsedText = elapsedTextOverride ?? _fmt(elapsedSec);
+    buffer.writeln('経過：$elapsedText');
     buffer.writeln('');
     buffer.writeln('得点詳細（時刻順）');
 
@@ -1832,7 +1841,15 @@ class ResultScreen extends StatelessWidget {
       buffer.writeln('得点なし');
     } else {
       for (final e in evs) {
-        final time = _fmt(e['tGlobal'] as int);
+        final phase = (e['phase'] ?? '').toString().trim();
+        final tGlobal =
+            (e['tGlobal'] is num) ? (e['tGlobal'] as num).toInt() : 0;
+        final tPhase =
+            (e['tPhase'] is num) ? (e['tPhase'] as num).toInt() : tGlobal;
+        final isPhaseRelative =
+            phase == '後半' || phase == '延長前半' || phase == '延長後半';
+        final t = (usePhaseRelativeTime && isPhaseRelative) ? tPhase : tGlobal;
+        final time = _fmt(t);
         final teamName = e['team'] == 'A' ? teamA : teamB;
         final no = e['playerNo'] as int;
         final name = (e['playerName'] as String?) ?? '';
@@ -1856,6 +1873,8 @@ class ResultScreen extends StatelessWidget {
     required List<Map<String, dynamic>> evs,
     required bool showExport,
     VoidCallback? onExport,
+    bool usePhaseRelativeTime = false,
+    String? elapsedTextOverride,
   }) {
     final score = _scoreOf(evs);
     final aEvents = evs.where((e) => e['team'] == 'A').toList();
@@ -1888,7 +1907,7 @@ class ResultScreen extends StatelessWidget {
             const SizedBox(height: 4),
             Center(
               child: Text(
-                '経過：${_fmt(elapsedSec)}',
+                '経過：${elapsedTextOverride ?? _fmt(elapsedSec)}',
                 style: const TextStyle(color: Colors.black54),
               ),
             ),
@@ -1912,8 +1931,17 @@ class ResultScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: aEvents.map((e) {
-                      final time = _fmt(e['tGlobal'] as int);
-                      final phase = (e['phase'] ?? '').toString().trim(); // 前半/後半
+                      final phase = (e['phase'] ?? '').toString().trim(); // 前半/後半/延長
+                      final tGlobal =
+                          (e['tGlobal'] is num) ? (e['tGlobal'] as num).toInt() : 0;
+                      final tPhase =
+                          (e['tPhase'] is num) ? (e['tPhase'] as num).toInt() : tGlobal;
+                      final isPhaseRelative =
+                          phase == '後半' || phase == '延長前半' || phase == '延長後半';
+                      final t = (usePhaseRelativeTime && isPhaseRelative)
+                          ? tPhase
+                          : tGlobal;
+                      final time = _fmt(t);
                       final no = e['playerNo'] as int;
                       final name = (e['playerName'] as String?) ?? '';
                       final who = name.isEmpty ? '#$no' : '#$no $name';
@@ -1930,8 +1958,17 @@ class ResultScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: bEvents.map((e) {
-                      final time = _fmt(e['tGlobal'] as int);
-                      final phase = (e['phase'] ?? '').toString().trim(); // 前半/後半
+                      final phase = (e['phase'] ?? '').toString().trim(); // 前半/後半/延長
+                      final tGlobal =
+                          (e['tGlobal'] is num) ? (e['tGlobal'] as num).toInt() : 0;
+                      final tPhase =
+                          (e['tPhase'] is num) ? (e['tPhase'] as num).toInt() : tGlobal;
+                      final isPhaseRelative =
+                          phase == '後半' || phase == '延長前半' || phase == '延長後半';
+                      final t = (usePhaseRelativeTime && isPhaseRelative)
+                          ? tPhase
+                          : tGlobal;
+                      final time = _fmt(t);
                       final no = e['playerNo'] as int;
                       final name = (e['playerName'] as String?) ?? '';
                       final who = name.isEmpty ? '#$no' : '#$no $name';
@@ -1990,11 +2027,13 @@ class ResultScreen extends StatelessWidget {
             elapsedSec: totalElapsedSec,
             evs: fullEvents,
             showExport: true,
+            usePhaseRelativeTime: true,
             onExport: () => _exportText(
               title: 'Result（試合全体）',
               fileName: 'result_full.txt',
               elapsedSec: totalElapsedSec,
               evs: fullEvents,
+              usePhaseRelativeTime: true,
             ),
           ),
 
@@ -2005,11 +2044,13 @@ class ResultScreen extends StatelessWidget {
             elapsedSec: firstHalfElapsedSec,
             evs: firstHalfEvents,
             showExport: true,
+            elapsedTextOverride: _fmt(firstHalfElapsedSec),
             onExport: () => _exportText(
               title: 'Result（前半）',
               fileName: 'result_1st.txt',
               elapsedSec: firstHalfElapsedSec,
               evs: firstHalfEvents,
+              elapsedTextOverride: _fmt(firstHalfElapsedSec),
             ),
           ),
           _resultBlock(
@@ -2017,11 +2058,15 @@ class ResultScreen extends StatelessWidget {
             elapsedSec: secondHalfElapsedSec,
             evs: secondHalfEvents,
             showExport: true,
+            usePhaseRelativeTime: true,
+            elapsedTextOverride: _fmt(secondHalfElapsedSec),
             onExport: () => _exportText(
               title: 'Result（後半）',
               fileName: 'result_2nd.txt',
               elapsedSec: secondHalfElapsedSec,
               evs: secondHalfEvents,
+              usePhaseRelativeTime: true,
+              elapsedTextOverride: _fmt(secondHalfElapsedSec),
             ),
           ),
 
@@ -2032,11 +2077,17 @@ class ResultScreen extends StatelessWidget {
               elapsedSec: extraElapsed,
               evs: extraEvents,
               showExport: true,
+              usePhaseRelativeTime: true,
+              elapsedTextOverride:
+                  '前半 ${_fmt(extraFirstHalfElapsedSec)} / 後半 ${_fmt(extraSecondHalfElapsedSec)}',
               onExport: () => _exportText(
                 title: 'Result（延長）',
                 fileName: 'result_extra.txt',
                 elapsedSec: extraElapsed,
                 evs: extraEvents,
+                usePhaseRelativeTime: true,
+                elapsedTextOverride:
+                    '前半 ${_fmt(extraFirstHalfElapsedSec)} / 後半 ${_fmt(extraSecondHalfElapsedSec)}',
               ),
             ),
           ],
