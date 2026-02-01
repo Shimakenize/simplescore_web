@@ -82153,7 +82153,7 @@ if(f==null)f=""
 e="#"+g
 e=f.length===0?e:e+" "+f
 d=o.length===0?"":o+"  "
-a2+=j+":"+i+"  "+d+h+"  "+e+"\n"}a2=(self.URL||self.webkitURL).createObjectURL(A.awR([a2.charCodeAt(0)==0?a2:a2],"text/plain"))
+a2+=j+":"+i+"  "+d+h+"  "+e+"\n"}a2=(self.URL||self.webkitURL).createObjectURL(A.awR(["\ufeff"+(a2.charCodeAt(0)==0?a2:a2)],"text/plain;charset=utf-8"))
 a2.toString
 r=document.createElement("a")
 r.href=a2

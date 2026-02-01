@@ -1896,8 +1896,8 @@ class ResultScreen extends StatelessWidget {
       }
     }
 
-    final text = buffer.toString();
-    final blob = html.Blob([text], 'text/plain');
+    final text = '\uFEFF${buffer.toString()}';
+    final blob = html.Blob([text], 'text/plain;charset=utf-8');
     final url = html.Url.createObjectUrlFromBlob(blob);
     html.AnchorElement(href: url)
       ..setAttribute('download', fileName)
