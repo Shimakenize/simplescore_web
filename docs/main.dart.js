@@ -81469,10 +81469,10 @@ l.push(new A.dY(o.a,A.bW(n,m,m,m,m,m,m),B.dM,m,q))}return l},
 L(a){var s,r,q,p,o,n,m,l=this,k=null,j="__manual__",i=l.a_h(),h=new A.ad(i,new A.agB(),A.T(i).i("ad<1,q?>")).hC(0)
 if(!h.p(0,l.f))l.f=j
 if(!h.p(0,l.r))l.r=j
-s=A.EC(k,B.S5)
+s=A.EC(k,B.St)
 r=t.p
 q=A.b([A.dE(A.It(!1,B.z8,k,k,B.ah,k,k,l.ga7i(),k,k),48,1/0)],r)
-if($.ajH!=null)B.b.P(q,A.b([B.aM,A.dE(A.It(!1,B.Sa,k,k,B.ah,k,k,l.ga7g(),k,k),48,1/0)],r))
+if($.ajH!=null)B.b.P(q,A.b([B.aM,A.dE(A.It(!1,B.S9,k,k,B.ah,k,k,l.ga7g(),k,k),48,1/0)],r))
 q.push(B.cl)
 p=t.N
 q.push(A.ez(A.b([B.E6,A.Gn(i,new A.agC(l),l.f,p)],r),B.ad,B.T,B.ae))
@@ -81488,10 +81488,10 @@ o=t.xs
 n=o.i("aI.E")
 m=t.S
 q.push(A.ez(A.b([B.E8,A.Gn(A.a2(new A.ad(B.Gl,new A.agE(),o),!0,n),new A.agF(l),p,m)],r),B.ad,B.T,B.ae))
-q.push(new A.KS(l.x,new A.agG(l),B.S8,k))
+q.push(new A.KS(l.x,new A.agG(l),B.S7,k))
 if(l.x){p=l.y
 q.push(A.ez(A.b([B.Ea,A.Gn(A.a2(new A.ad(B.G4,new A.agH(),o),!0,n),new A.agI(l),p,m)],r),B.ad,B.T,B.ae))}q.push(B.cl)
-q.push(A.dE(A.hD(!1,B.S7,B.u,k,B.ah,k,k,k,k,l.gaae(),k,k),48,1/0))
+q.push(A.dE(A.hD(!1,B.S6,B.u,k,B.ah,k,k,k,k,l.gaae(),k,k),48,1/0))
 return A.JY(s,A.HG(A.b([A.pB(new A.bP(B.bU,A.fn(q,B.ad,B.T,B.ae),k),k,k,k)],r),B.bU,k,!1))}}
 A.agt.prototype={
 $1(a){return B.IW},
@@ -81708,7 +81708,7 @@ j=k.c
 j.toString
 A.dN(j,!1).dR()},
 L(a){var s,r,q,p,o,n,m=this,l=null,k=A.bW(m.a.d?"New Team":"Edit Team",l,l,l,l,l,l),j=t.p
-k=A.EC(A.b([A.L2(B.So,m.ga93(),l)],j),k)
+k=A.EC(A.b([A.L2(B.Sn,m.ga93(),l)],j),k)
 s=m.d
 s===$&&A.a()
 s=A.b([A.rG(s,B.EQ,l),B.cl,A.ez(A.b([B.E9,A.wk(l,B.jr,m.gZM(),l,"Add row")],j),B.ad,B.T,B.ae),B.aM],j)
@@ -81879,15 +81879,15 @@ k=A.EC(A.b([A.wk(l,B.EG,m.ga8G(),l,"Reset")],j),k)
 s=A.bW(m.ga82(),l,l,l,A.J(a).p2.r,l,l)
 r=A.bW(i,l,l,l,A.J(a).p2.e,l,l)
 q=A.ez(A.b([A.nk(A.fn(A.b([A.bW(m.a.c,l,l,l,l,l,l),A.bW(""+m.r,l,l,l,A.J(a).p2.c,l,l),B.aM,A.hD(!1,B.z7,B.u,l,B.ah,l,l,l,l,new A.adR(m),l,l)],j),B.ad,B.T,B.ae)),A.nk(A.fn(A.b([A.bW(m.a.d,l,l,l,l,l,l),A.bW(""+m.w,l,l,l,A.J(a).p2.c,l,l),B.aM,A.hD(!1,B.z7,B.u,l,B.ah,l,l,l,l,new A.adS(m),l,l)],j),B.ad,B.T,B.ae))],j),B.ad,B.T,B.ae)
-p=A.It(!1,B.Si,l,l,B.ah,l,l,m.gaaO(),l,l)
+p=A.It(!1,B.Sh,l,l,B.ah,l,l,m.gaaO(),l,l)
 o=m.f
 n=o?m.ga64():m.gaah()
 s=A.b([s,B.aM,r,B.cl,q,B.kN,A.ez(A.b([p,A.hD(!1,A.bW(o?"Stop":"Start",l,l,l,l,l,l),B.u,l,B.ah,l,l,l,l,n,l,l)],j),B.ad,B.h8,B.ae),B.cl],j)
-if(m.d===B.ha)s.push(A.hD(!1,B.Sp,B.u,l,B.ah,l,l,l,l,m.ga1m(),l,l))
-if(m.d===B.k1)s.push(A.hD(!1,B.Sr,B.u,l,B.ah,l,l,l,l,m.ga1o(),l,l))
-if(m.d===B.k2)s.push(A.hD(!1,B.Sj,B.u,l,B.ah,l,l,l,l,m.ga1t(),l,l))
-if(m.d===B.k3)s.push(A.hD(!1,B.Sc,B.u,l,B.ah,l,l,l,l,m.ga1i(),l,l))
-if(m.d===B.k4)s.push(A.hD(!1,B.St,B.u,l,B.ah,l,l,l,l,m.ga1k(),l,l))
+if(m.d===B.ha)s.push(A.hD(!1,B.So,B.u,l,B.ah,l,l,l,l,m.ga1m(),l,l))
+if(m.d===B.k1)s.push(A.hD(!1,B.Sq,B.u,l,B.ah,l,l,l,l,m.ga1o(),l,l))
+if(m.d===B.k2)s.push(A.hD(!1,B.Si,B.u,l,B.ah,l,l,l,l,m.ga1t(),l,l))
+if(m.d===B.k3)s.push(A.hD(!1,B.Sb,B.u,l,B.ah,l,l,l,l,m.ga1i(),l,l))
+if(m.d===B.k4)s.push(A.hD(!1,B.Ss,B.u,l,B.ah,l,l,l,l,m.ga1k(),l,l))
 if(m.d===B.eB){r=m.a
 q=r.c
 p=m.ax
@@ -81940,7 +81940,7 @@ r.push(B.aM)
 p=m.f
 r.push(A.rG(p,B.EL,l))
 r=A.fn(r,B.ad,B.T,B.bF)
-return A.anG(A.b([A.L2(B.Sv,new A.adH(a),l),A.hD(!1,B.Sh,B.u,l,B.ah,l,l,l,l,new A.adI(q,p,a),l,l)],s),r,k)},
+return A.anG(A.b([A.L2(B.Sv,new A.adH(a),l),A.hD(!1,B.Sg,B.u,l,B.ah,l,l,l,l,new A.adI(q,p,a),l,l)],s),r,k)},
 $S:119}
 A.adF.prototype={
 $1(a){var s=null,r=""+a.a,q=a.b
@@ -81993,7 +81993,7 @@ s.d=B.hb},
 $S:0}
 A.ado.prototype={
 $1(a){var s=null,r=this.a
-return A.anG(A.b([A.L2(B.Sm,new A.adm(r),s),A.hD(!1,B.Sq,B.u,s,B.ah,s,s,s,s,new A.adn(r),s,s)],t.p),B.Sk,B.Sf)},
+return A.anG(A.b([A.L2(B.Sl,new A.adm(r),s),A.hD(!1,B.Sp,B.u,s,B.ah,s,s,s,s,new A.adn(r),s,s)],t.p),B.Sj,B.Se)},
 $S:119}
 A.adm.prototype={
 $0(){var s=this.a,r=s.c
@@ -82128,7 +82128,7 @@ vO(a,b,c,d,e){var s,r,q,p=this,o=null,n=p.MO(b),m=A.T(b).i("aH<1>"),l=m.i("k.E")
 l=A.Wg(12)
 m=t.p
 s=A.b([A.bW(e,o,o,o,B.z5,o,o),B.aM,A.l3(A.bW(p.c+"  "+n.a+"  -  "+n.b+"  "+p.d,o,o,o,B.z4,B.eW,o),o,o),B.N5,A.l3(A.bW("\u7d4c\u904e\uff1a"+p.jY(a),o,o,o,B.PS,o,o),o,o)],m)
-B.b.P(s,A.b([B.kN,A.dE(A.ayK(B.EI,B.Sn,c),40,o)],m))
+B.b.P(s,A.b([B.kN,A.dE(A.ayK(B.EI,B.Sm,c),40,o)],m))
 s.push(B.cl)
 r=A.T(k).i("ad<1,bP>")
 q=A.T(j).i("ad<1,bP>")
@@ -82138,12 +82138,12 @@ L(a){var s,r,q,p,o,n,m=this,l=null,k=m.ch,j=t.s,i=m.Bj(A.b(["\u524d\u534a"],j)),
 j=m.ax
 s=m.ay
 r=m.as+m.at
-q=A.EC(l,B.Ss)
+q=A.EC(l,B.Sr)
 p=t.p
-o=A.b([A.dE(A.aA5(B.ED,B.S9,new A.a5u(a)),44,1/0),B.aM,m.vO(m.y,k,new A.a5v(m,k),!0,"Result\uff08\u8a66\u5408\u5168\u4f53\uff09"),B.j9,m.vO(m.z,i,new A.a5w(m,i),!0,"Result\uff08\u524d\u534a\uff09"),m.vO(m.Q,h,new A.a5x(m,h),!0,"Result\uff08\u5f8c\u534a\uff09")],p)
+o=A.b([A.dE(A.aA5(B.ED,B.S8,new A.a5u(a)),44,1/0),B.aM,m.vO(m.y,k,new A.a5v(m,k),!0,"Result\uff08\u8a66\u5408\u5168\u4f53\uff09"),B.j9,m.vO(m.z,i,new A.a5w(m,i),!0,"Result\uff08\u524d\u534a\uff09"),m.vO(m.Q,h,new A.a5x(m,h),!0,"Result\uff08\u5f8c\u534a\uff09")],p)
 if(f)B.b.P(o,A.b([B.j9,m.vO(r,g,new A.a5y(m,r,g),!0,"Result\uff08\u5ef6\u9577\uff09")],p))
 if(j+s>0){n=A.Wg(12)
-B.b.P(o,A.b([B.j9,A.pB(new A.bP(B.bU,A.fn(A.b([B.Sg,B.aM,A.bW(m.c+"  "+j+"  -  "+s+"  "+m.d,l,l,l,B.z4,B.eW,l)],p),B.ad,B.T,B.ae),l),0,l,new A.ci(n,new A.aS(B.iR,1,B.x,-1)))],p))}return A.JY(q,A.HG(o,B.bU,l,!1))}}
+B.b.P(o,A.b([B.j9,A.pB(new A.bP(B.bU,A.fn(A.b([B.Sf,B.aM,A.bW(m.c+"  "+j+"  -  "+s+"  "+m.d,l,l,l,B.z4,B.eW,l)],p),B.ad,B.T,B.ae),l),0,l,new A.ci(n,new A.aS(B.iR,1,B.x,-1)))],p))}return A.JY(q,A.HG(o,B.bU,l,!1))}}
 A.a5p.prototype={
 $1(a){return B.b.p(this.a,J.ba(a,"phase"))},
 $S:45}
@@ -85429,16 +85429,16 @@ B.ji=new A.ni(!1,!1,!1,!0)
 B.mU=new A.nj(!1,!1,!1,!1)
 B.mV=new A.nj(!1,!1,!1,!0)
 B.c9=new A.GL(0,"tight")
-B.Sd=new A.bD("Team A (select or type)",null,null,null,null,null,null,null,null)
-B.E6=new A.iF(1,B.c9,B.Sd,null)
-B.Se=new A.bD("Team B (select or type)",null,null,null,null,null,null,null,null)
-B.E7=new A.iF(1,B.c9,B.Se,null)
-B.Sl=new A.bD("Half minutes",null,null,null,null,null,null,null,null)
-B.E8=new A.iF(1,B.c9,B.Sl,null)
-B.Sb=new A.bD("Members (No. / Name)",null,null,null,null,null,null,null,null)
-B.E9=new A.iF(1,B.c9,B.Sb,null)
-B.S6=new A.bD("Halftime break (min)",null,null,null,null,null,null,null,null)
-B.Ea=new A.iF(1,B.c9,B.S6,null)
+B.Sc=new A.bD("Team A (select or type)",null,null,null,null,null,null,null,null)
+B.E6=new A.iF(1,B.c9,B.Sc,null)
+B.Sd=new A.bD("Team B (select or type)",null,null,null,null,null,null,null,null)
+B.E7=new A.iF(1,B.c9,B.Sd,null)
+B.Sk=new A.bD("Half minutes",null,null,null,null,null,null,null,null)
+B.E8=new A.iF(1,B.c9,B.Sk,null)
+B.Sa=new A.bD("Members (No. / Name)",null,null,null,null,null,null,null,null)
+B.E9=new A.iF(1,B.c9,B.Sa,null)
+B.S5=new A.bD("Halftime break (min)",null,null,null,null,null,null,null,null)
+B.Ea=new A.iF(1,B.c9,B.S5,null)
 B.Eb=new A.vW(null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.fv=new A.jF(!1,!1,!1,!1)
 B.fw=new A.jF(!1,!1,!1,!0)
@@ -87489,27 +87489,27 @@ B.z7=new A.bD("+ Goal",null,null,null,null,null,null,null,null)
 B.S2=new A.bD("Add new team",null,null,null,null,null,null,null,null)
 B.S3=new A.bD("PK\u7d42\u4e86 \u2192 \u7d50\u679c\u3078",null,null,null,null,null,null,null,null)
 B.S4=new A.bD("Up to 10 teams",null,null,null,null,null,null,null,null)
-B.S5=new A.bD("Setup",null,null,null,null,null,null,null,null)
-B.S7=new A.bD("Start Match",null,null,null,null,null,null,null,null)
-B.S8=new A.bD("Halftime",null,null,null,null,null,null,null,null)
-B.S9=new A.bD("Setup\u3078\u623b\u308b",null,null,null,null,null,null,null,null)
-B.Sa=new A.bD("View latest match",null,null,null,null,null,null,null,null)
-B.Sc=new A.bD("\u5ef6\u9577\u524d\u534a\u7d42\u4e86",null,null,null,null,null,null,null,null)
-B.Sf=new A.bD("Draw",null,null,null,null,null,null,null,null)
-B.Sg=new A.bD("Result\uff08PK\uff09",null,B.z5,null,null,null,null,null,null)
-B.Sh=new A.bD("OK",null,null,null,null,null,null,null,null)
-B.Si=new A.bD("Undo",null,null,null,null,null,null,null,null)
-B.Sj=new A.bD("\u5f8c\u534a\u7d42\u4e86",null,null,null,null,null,null,null,null)
-B.Sk=new A.bD("Proceed to Extra Time or Penalty Shootout?",null,null,null,null,null,null,null,null)
-B.Sm=new A.bD("Extra",null,null,null,null,null,null,null,null)
+B.S6=new A.bD("Start Match",null,null,null,null,null,null,null,null)
+B.S7=new A.bD("Halftime",null,null,null,null,null,null,null,null)
+B.S8=new A.bD("\u8a2d\u5b9a\u753b\u9762\u3078\u623b\u308b",null,null,null,null,null,null,null,null)
+B.S9=new A.bD("View latest match",null,null,null,null,null,null,null,null)
+B.Sb=new A.bD("\u5ef6\u9577\u524d\u534a\u7d42\u4e86",null,null,null,null,null,null,null,null)
+B.Se=new A.bD("Draw",null,null,null,null,null,null,null,null)
+B.Sf=new A.bD("Result\uff08PK\uff09",null,B.z5,null,null,null,null,null,null)
+B.Sg=new A.bD("OK",null,null,null,null,null,null,null,null)
+B.Sh=new A.bD("Undo",null,null,null,null,null,null,null,null)
+B.Si=new A.bD("\u5f8c\u534a\u7d42\u4e86",null,null,null,null,null,null,null,null)
+B.Sj=new A.bD("Proceed to Extra Time or Penalty Shootout?",null,null,null,null,null,null,null,null)
+B.Sl=new A.bD("Extra",null,null,null,null,null,null,null,null)
 B.z8=new A.bD("My Teams",null,null,null,null,null,null,null,null)
-B.Sn=new A.bD("\u66f8\u304d\u51fa\u3057",null,null,null,null,null,null,null,null)
-B.So=new A.bD("Save",null,null,null,null,null,null,null,null)
-B.Sp=new A.bD("\u524d\u534a\u7d42\u4e86",null,null,null,null,null,null,null,null)
-B.Sq=new A.bD("PK",null,null,null,null,null,null,null,null)
-B.Sr=new A.bD("\u5f8c\u534a\u958b\u59cb",null,null,null,null,null,null,null,null)
-B.Ss=new A.bD("Result",null,null,null,null,null,null,null,null)
-B.St=new A.bD("\u5ef6\u9577\u5f8c\u534a\u7d42\u4e86",null,null,null,null,null,null,null,null)
+B.Sm=new A.bD("\u66f8\u304d\u51fa\u3057",null,null,null,null,null,null,null,null)
+B.Sn=new A.bD("Save",null,null,null,null,null,null,null,null)
+B.So=new A.bD("\u524d\u534a\u7d42\u4e86",null,null,null,null,null,null,null,null)
+B.Sp=new A.bD("PK",null,null,null,null,null,null,null,null)
+B.Sq=new A.bD("\u5f8c\u534a\u958b\u59cb",null,null,null,null,null,null,null,null)
+B.Sr=new A.bD("Result",null,null,null,null,null,null,null,null)
+B.Ss=new A.bD("\u5ef6\u9577\u5f8c\u534a\u7d42\u4e86",null,null,null,null,null,null,null,null)
+B.St=new A.bD("\u8a2d\u5b9a\u753b\u9762",null,null,null,null,null,null,null,null)
 B.Sv=new A.bD("Cancel",null,null,null,null,null,null,null,null)
 B.Q2=new A.m(!0,null,null,null,null,null,16,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.Sw=new A.bD("\u5f97\u70b9\u5c65\u6b74",null,B.Q2,null,null,null,null,null,null)
