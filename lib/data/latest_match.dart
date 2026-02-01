@@ -4,7 +4,7 @@ Map<String, dynamic>? latestMatchResult;
 
 void loadLatestMatchResult() {
   try {
-    final jsonString = html.window.localStorage['latest_match_result'];
+    final jsonString = html.window.localStorage['latestMatchResult'];
     if (jsonString == null) return;
 
     final decoded = jsonDecode(jsonString);
@@ -17,6 +17,7 @@ void loadLatestMatchResult() {
 void saveLatestMatchResultBestEffort(Map<String, dynamic> data) {
   try {
     latestMatchResult = data;
-    html.window.localStorage['latest_match_result'] = jsonEncode(data);
+    html.window.localStorage['latestMatchResult'] = jsonEncode(data);
   } catch (_) {}
 }
+

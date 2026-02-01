@@ -15,36 +15,36 @@ class TeamEditorScreen extends StatefulWidget {
 }
 
 class _TeamEditorScreenState extends State<TeamEditorScreen> {
-  late final TextEditingController _teamNameController;
-  late final List<TeamMember> _members;
+  late TextEditingController _nameCtrl;
+  final List<TeamMember> _members = [];
 
   @override
   void initState() {
     super.initState();
-    _teamNameController = TextEditingController(text: widget.team.name);
-    _members = List<TeamMember>.from(widget.team.members);
+    _nameCtrl = TextEditingController(text: widget.team.name);
+    _members.addAll(widget.team.members);
   }
 
   @override
   void dispose() {
-    _teamNameController.dispose();
+    _nameCtrl.dispose();
     super.dispose();
   }
 
-  void _saveAndPop() {
-    final newName = _teamNameController.text.trim();
-    final updatedTeam = MyTeam(
+  void _save() {
+    final name = _nameCtrl.text.trim();
+    final saved = MyTeam(
       id: widget.team.id,
-      name: newName,
-      members: _members,
+      name: name,
+      members: List<TeamMember>.from(_members),
     );
 
     if (widget.isNew) {
-      myTeamsCache.add(updatedTeam);
+      myTeamsCache.add(saved);
     } else {
       final idx = myTeamsCache.indexWhere((t) => t.id == widget.team.id);
       if (idx >= 0) {
-        myTeamsCache[idx] = updatedTeam;
+        myTeamsCache[idx] = saved;
       }
     }
 
@@ -52,62 +52,65 @@ class _TeamEditorScreenState extends State<TeamEditorScreen> {
     Navigator.pop(context);
   }
 
-  void _addMemberDialog() {
-    final numberController = TextEditingController();
-    final nameController = TextEditingController();
+  void _addMember() async {
+    final numberCtrl = TextEditingController();
+    final nameCtrl = TextEditingController();
 
-    showDialog(
+    final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Add Member'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: numberController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Number (0-99)'),
+      builder: (_) {
+        return AlertDialog(
+          title: const Text('Add Member'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: numberCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Number (0-99)'),
+              ),
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Name'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
             ),
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: 'Name'),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Add'),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final num = int.tryParse(numberController.text.trim());
-              final name = nameController.text.trim();
-              if (num == null || num < 0 || num > 99 || name.isEmpty) {
-                Navigator.pop(context);
-                return;
-              }
-              setState(() {
-                _members.add(TeamMember(number: num, name: name));
-              });
-              Navigator.pop(context);
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
+        );
+      },
     );
+
+    if (ok != true) return;
+
+    final num = int.tryParse(numberCtrl.text.trim());
+    final name = nameCtrl.text.trim();
+
+    if (num == null || num < 0 || num > 99 || name.isEmpty) return;
+
+    setState(() {
+      _members.add(TeamMember(number: num, name: name));
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Team'),
+        title: const Text('Team Editor'),
         actions: [
           IconButton(
+            tooltip: 'Save',
+            onPressed: _save,
             icon: const Icon(Icons.save),
-            onPressed: _saveAndPop,
           ),
         ],
       ),
@@ -116,7 +119,7 @@ class _TeamEditorScreenState extends State<TeamEditorScreen> {
         child: Column(
           children: [
             TextField(
-              controller: _teamNameController,
+              controller: _nameCtrl,
               decoration: const InputDecoration(labelText: 'Team Name'),
             ),
             const SizedBox(height: 16),
@@ -126,9 +129,9 @@ class _TeamEditorScreenState extends State<TeamEditorScreen> {
                 itemBuilder: (context, index) {
                   final m = _members[index];
                   return ListTile(
-                    title: Text('${m.number} ${m.name}'),
+                    title: Text('${m.number}  ${m.name}'),
                     trailing: IconButton(
-                      icon: const Icon(Icons.delete),
+                      icon: const Icon(Icons.delete_outline),
                       onPressed: () {
                         setState(() {
                           _members.removeAt(index);
@@ -139,10 +142,11 @@ class _TeamEditorScreenState extends State<TeamEditorScreen> {
                 },
               ),
             ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _addMemberDialog,
-              child: const Text('Add Member'),
+            const SizedBox(height: 8),
+            ElevatedButton.icon(
+              onPressed: _addMember,
+              icon: const Icon(Icons.person_add_alt_1),
+              label: const Text('Add Member'),
             ),
           ],
         ),

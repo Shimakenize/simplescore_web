@@ -1,7 +1,7 @@
 part of simplescore_web_app;
 
 // ===============================
-// Setup
+// Setup Screen
 // ===============================
 
 class SetupScreen extends StatefulWidget {
@@ -12,20 +12,21 @@ class SetupScreen extends StatefulWidget {
 }
 
 class _SetupScreenState extends State<SetupScreen> {
-  String? teamAId;
-  String? teamBId;
+  MyTeam? _teamA;
+  MyTeam? _teamB;
 
-  int matchMinutes = 10;
-  bool hasHalftime = true;
+  int _matchMinutes = 10;
+  bool _hasHalfTime = true;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Setup'),
+        title: const Text('Match Setup'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.group),
+            icon: const Icon(Icons.groups),
+            tooltip: 'My Teams',
             onPressed: () async {
               await Navigator.push(
                 context,
@@ -41,87 +42,76 @@ class _SetupScreenState extends State<SetupScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Team A'),
-            DropdownButton<String>(
-              isExpanded: true,
-              value: teamAId,
-              hint: const Text('Select Team A'),
-              items: myTeamsCache
-                  .map(
-                    (t) => DropdownMenuItem<String>(
-                      value: t.id,
-                      child: Text(t.name),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (v) => setState(() => teamAId = v),
+            const Text(
+              'Teams',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 12),
-            const Text('Team B'),
-            DropdownButton<String>(
-              isExpanded: true,
-              value: teamBId,
-              hint: const Text('Select Team B'),
-              items: myTeamsCache
-                  .map(
-                    (t) => DropdownMenuItem<String>(
-                      value: t.id,
-                      child: Text(t.name),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (v) => setState(() => teamBId = v),
+            const SizedBox(height: 8),
+            _teamSelector(
+              label: 'Team A',
+              selected: _teamA,
+              onSelected: (t) => setState(() => _teamA = t),
+            ),
+            _teamSelector(
+              label: 'Team B',
+              selected: _teamB,
+              onSelected: (t) => setState(() => _teamB = t),
             ),
             const SizedBox(height: 24),
+            const Text(
+              'Match Options',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
             Row(
               children: [
                 const Text('Minutes:'),
                 const SizedBox(width: 12),
                 DropdownButton<int>(
-                  value: matchMinutes,
+                  value: _matchMinutes,
                   items: const [
                     DropdownMenuItem(value: 5, child: Text('5')),
                     DropdownMenuItem(value: 10, child: Text('10')),
                     DropdownMenuItem(value: 15, child: Text('15')),
                     DropdownMenuItem(value: 20, child: Text('20')),
                   ],
-                  onChanged: (v) => setState(() => matchMinutes = v ?? 10),
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() => _matchMinutes = v);
+                    }
+                  },
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
+                const SizedBox(width: 24),
                 Checkbox(
-                  value: hasHalftime,
-                  onChanged: (v) => setState(() => hasHalftime = v ?? true),
+                  value: _hasHalfTime,
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() => _hasHalfTime = v);
+                    }
+                  },
                 ),
-                const Text('Halftime'),
+                const Text('Half Time'),
               ],
             ),
             const Spacer(),
-            SizedBox(
-              width: double.infinity,
+            Center(
               child: ElevatedButton(
-                onPressed: (teamAId == null || teamBId == null)
+                onPressed: (_teamA == null || _teamB == null)
                     ? null
                     : () {
-                        final teamA =
-                            myTeamsCache.firstWhere((t) => t.id == teamAId);
-                        final teamB =
-                            myTeamsCache.firstWhere((t) => t.id == teamBId);
-
+                        final match = {
+                          'teamAId': _teamA!.id,
+                          'teamBId': _teamB!.id,
+                          'minutes': _matchMinutes,
+                          'hasHalfTime': _hasHalfTime,
+                          'events': [],
+                          'startedAt': DateTime.now().millisecondsSinceEpoch,
+                        };
+                        saveLatestMatchResultBestEffort(match);
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => MatchScreen(
-                              teamA: teamA.name,
-                              teamB: teamB.name,
-                              teamAId: teamA.id,
-                              teamBId: teamB.id,
-                              minutes: matchMinutes,
-                              hasHalftime: hasHalftime,
-                            ),
+                            builder: (_) => MatchScreen(),
                           ),
                         );
                       },
@@ -133,4 +123,36 @@ class _SetupScreenState extends State<SetupScreen> {
       ),
     );
   }
+
+  Widget _teamSelector({
+    required String label,
+    required MyTeam? selected,
+    required ValueChanged<MyTeam> onSelected,
+  }) {
+    return Row(
+      children: [
+        SizedBox(width: 60, child: Text(label)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: DropdownButton<MyTeam>(
+            value: selected,
+            isExpanded: true,
+            hint: const Text('Select team'),
+            items: myTeamsCache
+                .map(
+                  (t) => DropdownMenuItem(
+                    value: t,
+                    child: Text(t.name),
+                  ),
+                )
+                .toList(),
+            onChanged: (v) {
+              if (v != null) onSelected(v);
+            },
+          ),
+        ),
+      ],
+    );
+  }
 }
+

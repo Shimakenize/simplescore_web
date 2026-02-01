@@ -1,71 +1,53 @@
 part of simplescore_web_app;
 
 // ===============================
-// Result
+// Result Screen
 // ===============================
 
 class ResultScreen extends StatelessWidget {
-  final String teamA;
-  final String teamB;
-  final int scoreA;
-  final int scoreB;
-  final List<Map<String, dynamic>> events;
+  const ResultScreen({super.key});
 
-  const ResultScreen({
-    super.key,
-    required this.teamA,
-    required this.teamB,
-    required this.scoreA,
-    required this.scoreB,
-    required this.events,
-  });
+  String _formatSeconds(int totalSeconds) {
+    if (totalSeconds < 0) totalSeconds = 0;
 
-  String _fmt(int sec) {
-    final m = (sec ~/ 60).toString().padLeft(2, '0');
-    final s = (sec % 60).toString().padLeft(2, '0');
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+
+    final m = minutes.toString().padLeft(2, '0');
+    final s = seconds.toString().padLeft(2, '0');
+
     return '$m:$s';
   }
 
   @override
   Widget build(BuildContext context) {
+    final match = latestMatchResult!;
+    final events = (match['events'] as List).cast<dynamic>();
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Result'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Text(
-              '$teamA $scoreA  -  $scoreB $teamB',
-              style: const TextStyle(fontSize: 24),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ListView.builder(
-                itemCount: events.length,
-                itemBuilder: (context, index) {
-                  final e = events[index];
-                  return ListTile(
-                    title: Text('${e['team']}  #${e['number']} ${e['name']}'),
-                    subtitle: Text('${e['phase']}  ${e['time']}'),
-                  );
-                },
+      appBar: AppBar(title: const Text('Result')),
+      body: ListView(
+        children: [
+          for (final e in events)
+            if (e is Map && e['type'] == 'goal')
+              ListTile(
+                title: Text('${e['playerNumber']} ${e['playerName']}'),
+                trailing: Text(_formatSeconds((e['timeSeconds'] as int?) ?? 0)),
               ),
+          const SizedBox(height: 24),
+          Center(
+            child: ElevatedButton(
+              onPressed: () {
+                html.window.localStorage.remove('latestMatchResult');
+                latestMatchResult = null;
+                Navigator.popUntil(context, (r) => r.isFirst);
+              },
+              child: const Text('Back to Setup'),
             ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.popUntil(context, (r) => r.isFirst);
-                },
-                child: const Text('Back'),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
+

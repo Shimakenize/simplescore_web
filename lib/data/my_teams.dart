@@ -4,7 +4,7 @@ part of simplescore_web_app;
 // My Teams (localStorage)
 // ===============================
 
-const String _kMyTeamsStorageKey = 'my_teams_v1';
+const String _kMyTeamsStorageKey = 'myTeams';
 
 List<MyTeam> myTeamsCache = [];
 
@@ -114,3 +114,4 @@ void saveMyTeamsBestEffort() {
     html.window.localStorage[_kMyTeamsStorageKey] = jsonEncode(payload);
   } catch (_) {}
 }
+
