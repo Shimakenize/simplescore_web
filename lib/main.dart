@@ -348,7 +348,7 @@ class _SetupScreenState extends State<SetupScreen> {
     if (!validIds.contains(_teamBSelectedId)) _teamBSelectedId = '__manual__';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Setup')),
+      appBar: AppBar(title: const Text('設定画面')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -1979,7 +1979,7 @@ class ResultScreen extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: () => Navigator.of(context).pop(),
               icon: const Icon(Icons.home),
-              label: const Text('Setupへ戻る'),
+              label: const Text('設定画面へ戻る'),
             ),
           ),
 

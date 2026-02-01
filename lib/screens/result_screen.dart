@@ -42,7 +42,7 @@ class ResultScreen extends StatelessWidget {
                 latestMatchResult = null;
                 Navigator.popUntil(context, (r) => r.isFirst);
               },
-              child: const Text('Back to Setup'),
+              child: const Text('設定画面へ戻る'),
             ),
           ),
         ],
