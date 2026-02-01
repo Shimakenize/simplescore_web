@@ -1338,6 +1338,30 @@ class _MatchScreenState extends State<MatchScreen> {
     final phaseTimeText = _phasePlannedSec > 0
         ? '${_fmt(_elapsedInPhaseSec)} / ${_fmt(_phasePlannedSec)}'
         : _fmt(_elapsedInPhaseSec);
+    final Widget? endPhaseButton = () {
+      if (_phase == MatchPhase.firstHalf) {
+        return FilledButton(onPressed: _endFirstHalf, child: const Text('前半終了'));
+      }
+      if (_phase == MatchPhase.halftime) {
+        return FilledButton(onPressed: _endHalftime, child: const Text('後半開始'));
+      }
+      if (_phase == MatchPhase.secondHalf) {
+        return FilledButton(onPressed: _endSecondHalf, child: const Text('後半終了'));
+      }
+      if (_phase == MatchPhase.extraFirstHalf) {
+        return FilledButton(
+          onPressed: _endExtraFirstHalf,
+          child: const Text('延長前半終了'),
+        );
+      }
+      if (_phase == MatchPhase.extraSecondHalf) {
+        return FilledButton(
+          onPressed: _endExtraSecondHalf,
+          child: const Text('延長後半終了'),
+        );
+      }
+      return null;
+    }();
 
     return Scaffold(
       appBar: AppBar(
@@ -1394,32 +1418,23 @@ class _MatchScreenState extends State<MatchScreen> {
                   ),
                   const SizedBox(height: 12),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       OutlinedButton(
                         onPressed: _undoLastGoal,
                         child: const Text('Undo'),
                       ),
-                      if (_canUsePhaseTimer)
+                      const Spacer(),
+                      if (_canUsePhaseTimer) ...[
                         FilledButton(
                           onPressed: _running ? _stopTimer : _startTimer,
                           child: Text(_running ? '一時停止' : _phaseStartLabel()),
                         ),
+                        if (endPhaseButton != null) const SizedBox(width: 8),
+                      ],
+                      if (endPhaseButton != null) endPhaseButton,
                     ],
                   ),
                   const SizedBox(height: 16),
-
-                  if (_phase == MatchPhase.firstHalf)
-                    FilledButton(onPressed: _endFirstHalf, child: const Text('前半終了')),
-                  if (_phase == MatchPhase.halftime)
-                    FilledButton(onPressed: _endHalftime, child: const Text('後半開始')),
-                  if (_phase == MatchPhase.secondHalf)
-                    FilledButton(onPressed: _endSecondHalf, child: const Text('後半終了')),
-
-                  if (_phase == MatchPhase.extraFirstHalf)
-                    FilledButton(onPressed: _endExtraFirstHalf, child: const Text('延長前半終了')),
-                  if (_phase == MatchPhase.extraSecondHalf)
-                    FilledButton(onPressed: _endExtraSecondHalf, child: const Text('延長後半終了')),
 
                   if (_phase == MatchPhase.penaltyShootout) ...[
                     const SizedBox(height: 8),
