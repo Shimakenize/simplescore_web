@@ -1876,7 +1876,8 @@ class ResultScreen extends StatelessWidget {
         final no = e['playerNo'] as int;
         final name = (e['playerName'] as String?) ?? '';
         final who = name.isEmpty ? '#$no' : '#$no $name';
-        buffer.writeln('$time  $teamName  $who');
+        final phaseLabel = phase.isEmpty ? '' : '$phase  ';
+        buffer.writeln('$time  ${phaseLabel}$teamName  $who');
       }
     }
 
